@@ -14,6 +14,7 @@ Befunde, Protokolle und Build-Doku des Projekts. Sie enthalten nur Metadaten und
 | `dependencies.md` | Externe Dateien, XObjects, Pfade, Speichern/Laden | T2.4 |
 | `lingo-features.md` | Verwendete Lingo-Befehle nach Häufigkeit, abgeglichen mit ScummVM | T2.5, T3.3 |
 | `mouse-catching.md` | Fangmechanik der Mäuse (Sprites, Größen, Klicklogik) | T2.6 |
+| `room-stats.md` | Verstecke und Laufzeiten pro Fangraum (generiert von `tools/room_stats.py`) | T2.6 |
 | `compat-log.md` | Testmatrix und Fehlerprotokoll (Desktop, Emulator, Hardware) | T3.1 ff. |
 | `build-desktop.md` | ScummVM-Desktop-Build | T3.2 |
 | `build-3ds.md` | 3DS-Toolchain und -Build | T4.1 ff. |

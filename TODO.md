@@ -47,8 +47,9 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 - [x] **T1.5** Startablauf klären: Welchen Film öffnet `MAUSJAGD.EXE` zuerst? Ist darin ein Film eingebettet (nach `RIFX`/`XFIR`/`MV93` suchen), oder nennt der Projektor nur externe Dateien (vermutlich `GGMDMENU.DXR`)? Wie wird `LINGO.INI` geladen?
   *Fertig, wenn:* `docs/startup.md` den Ablauf vom Projektor bis zum ersten Bildschirm beschreibt.
   → Erledigt. Ablauf: `MAUSJAGD.EXE` → `LINGO.INI` → eingebetteter Startfilm `GGMDSTRT.DIR` (Farbtiefe, CD-Prüfung per FileIO, XObject **Backdrop**, `theme.aif`) → `GGMDMENU.DXR`. Die 8-Bit-Musik wird über `gMusicPath`/`gSolosPath` gewählt.
-- [ ] **T1.6** *(optional, Freigabe nötig)* Referenz für das Originalverhalten festlegen: eine Win9x-VM (86Box/VirtualBox) mit dem Originalspiel oder ein Longplay-Video. Den Nutzer fragen, was gewünscht ist.
+- [x] **T1.6** *(optional, Freigabe nötig)* Referenz für das Originalverhalten festlegen: eine Win9x-VM (86Box/VirtualBox) mit dem Originalspiel oder ein Longplay-Video. Den Nutzer fragen, was gewünscht ist.
   *Fertig, wenn:* die Entscheidung in `docs/reference.md` steht.
+  → Erledigt. Der Nutzer wählte ein Longplay-Video, im Netz war aber keins zu finden. Ersatz: der dekompilierte Code und die Anleitung. Ein Link wird nachgetragen, falls der Nutzer ein Video findet.
 
 ## Phase 2: Analyse und Lingo-Dekompilierung
 
@@ -59,11 +60,16 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
     - **Maus:** Die Bilder heißen `mice0xxx` (312 Stück in `SHARED.DXR`), Median **39×28 px** (min 14×10, max 67×74). Auf dem Touchscreen sind das etwa 19×14 px.
     - **Fallen:** `trap1`–`trap5` (35×31), `trapmark`, `traphilite`.
     - **Auffällig:** `KITCHEN.DXR` hat 342 `Lscr`-Chunks bei nur 13 Skript-Casts. Das in T2.2 prüfen.
-- [ ] **T2.2** ProjectorRays (github.com/ProjectorRays/ProjectorRays) besorgen: ein Release-Binary oder selbst bauen. Prüfen, ob D4 unterstützt wird. Alle 27 DXR dekompilieren und die Ausgabe nach `analysis/lingo/<FILM>/` legen (ignoriert, Regel 3). Falls ProjectorRays mit D4 scheitert, die Skript-Dump-Funktion der Director-Engine von ScummVM verwenden; sie steht ab T3.2 zur Verfügung.
+- [x] **T2.2** ProjectorRays (github.com/ProjectorRays/ProjectorRays) besorgen: ein Release-Binary oder selbst bauen. Prüfen, ob D4 unterstützt wird. Alle 27 DXR dekompilieren und die Ausgabe nach `analysis/lingo/<FILM>/` legen (ignoriert, Regel 3). Falls ProjectorRays mit D4 scheitert, die Skript-Dump-Funktion der Director-Engine von ScummVM verwenden; sie steht ab T3.2 zur Verfügung.
   *Fertig, wenn:* für jeden Film lesbarer Lingo-Code vorliegt oder in `docs/blockers.md` begründet ist, warum nicht.
-- [ ] **T2.3** Spielablauf rekonstruieren: alle `go to movie`, `play movie`, `go to frame`, `play done` und Marker auswerten. Ergebnis in `docs/game-flow.md` als Mermaid-Diagramm (Film → Film) plus Tabelle mit Raum, Film, Video und Rätsel bzw. Aktion.
+  → Erledigt mit ProjectorRays v0.2.0, lokal in `vendor/` (ignoriert). SHA-256 der EXE: `e9814428…c70db`. Aufruf: `vendor/projectorrays/projectorrays-0.2.0.exe decompile game/<FILM>.DXR --dump-scripts -o analysis/lingo/<FILM>`; der Ausgabeordner muss vorher existieren.
+    - **Ergebnis:** 543 Skripte aus 27 DXR plus dem Startfilm.
+    - **Projektor:** Den D4-Projektor kann ProjectorRays nicht lesen. Deshalb schneidet `tools/extract_projector_movie.py` den eingebetteten `GGMDSTRT.DIR` heraus und rechnet die Offsets um. Beim Zurückschreiben bricht ProjectorRays an einem leeren `THUM`-Chunk ab, die Skripte sind aber vollständig ausgegeben.
+    - **KITCHEN:** Die 342 `Lscr`-Chunks sind Altlasten; aktiv sind 13 Skripte.
+- [x] **T2.3** Spielablauf rekonstruieren: alle `go to movie`, `play movie`, `go to frame`, `play done` und Marker auswerten. Ergebnis in `docs/game-flow.md` als Mermaid-Diagramm (Film → Film) plus Tabelle mit Raum, Film, Video und Rätsel bzw. Aktion.
   *Fertig, wenn:* jeder der 27 Filme im Graphen vorkommt und erreichbar ist (oder als unbenutzt markiert ist).
-- [ ] **T2.4** Externe Abhängigkeiten in `docs/dependencies.md` dokumentieren:
+  → Erledigt: `docs/game-flow.md`. Ablauf: Start → Menü/Hotelübersicht → 19 Fangräume → (Musik: INSTRUM → ORCH) → Menü … → nach 19 Räumen ATTIC → THEEND → CREDITS. EXIT ist über das Hotel-Symbol oder Esc erreichbar. SHARED ist der Shared Cast. Kein Film ist unbenutzt.
+- [x] **T2.4** Externe Abhängigkeiten in `docs/dependencies.md` dokumentieren:
   - XObjects/Xlibs (`FileIO`, **Backdrop** aus dem Startfilm und eventuell weitere) mit allen aufgerufenen Methoden. Bei Backdrop klären, ob es auch unter Windows aufgerufen wird.
   - Sound-Aufrufe (`sound playFile`, `puppetSound` …) mit den verwendeten Pfaden
   - QuickTime-Casts und -Aufrufe
@@ -72,9 +78,14 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
   - Speichern und Laden (Dateinamen, Format)
 
   *Fertig, wenn:* jede externe Datei und jedes XObject mit Fundstelle (Film/Skript) aufgelistet ist.
-- [ ] **T2.5** Histogramm der verwendeten Lingo-Befehle, Properties und Events über alle Skripte erstellen (`tools/lingo_stats.py` auf `analysis/lingo/`). Das Ergebnis in `docs/lingo-features.md` ablegen. In T3.3 wird es mit dem Implementierungsstand von ScummVM abgeglichen.
+  → Erledigt: `docs/dependencies.md`.
+    - **XObjects:** Unter Windows wird nur FileIO benutzt (`read`, `append`, `mReadFile`, `mWriteString`). Backdrop gibt es nur im Mac-Zweig.
+    - **Pfade:** fünf Anforderungen an die Pfadauflösung in ScummVM, Grundlage für T3.6.
+    - **Risiken für ScummVM:** Warteschleifen über `the timer`, leere Zählschleifen, sowie Abfragen von `the mouseDown`, `the soundBusy` und `the movieRate` innerhalb von Schleifen.
+- [x] **T2.5** Histogramm der verwendeten Lingo-Befehle, Properties und Events über alle Skripte erstellen (`tools/lingo_stats.py` auf `analysis/lingo/`). Das Ergebnis in `docs/lingo-features.md` ablegen. In T3.3 wird es mit dem Implementierungsstand von ScummVM abgeglichen.
   *Fertig, wenn:* die Liste nach Häufigkeit sortiert ist.
-- [ ] **T2.6** Fangmechanik analysieren. Das ist das Kernfeature (PLAN.md §3). Startpunkte aus den Namenstabellen sind `mymouse`, `waitmouse`, `holdmouse`, `movemouse`, `hideplaces`, `hidepos`, `clicked`, `caught`, `settraps`, `selecttrap`, `checktrap`, `trapsdone`, `miceCaught` und `countup`; die Raum-Logik steckt vermutlich größtenteils in `SHARED.DXR`. Ermitteln und in `docs/mouse-catching.md` festhalten:
+  → Erledigt: `docs/lingo-features.md`, erzeugt von `tools/lingo_stats.py`. Der Umfang ist klein und klassisch für D4: 4 Event-Typen, 37 Builtins und 39 Properties. Am häufigsten: `go`, `puppetSound`, `puppetSprite`, `updateStage`, `sound playFile`, `play frame`.
+- [x] **T2.6** Fangmechanik analysieren. Das ist das Kernfeature (PLAN.md §3). Startpunkte aus den Namenstabellen sind `mymouse`, `waitmouse`, `holdmouse`, `movemouse`, `hideplaces`, `hidepos`, `clicked`, `caught`, `settraps`, `selecttrap`, `checktrap`, `trapsdone`, `miceCaught` und `countup`; die Raum-Logik steckt vermutlich größtenteils in `SHARED.DXR`. Ermitteln und in `docs/mouse-catching.md` festhalten:
   - In welchen Filmen werden Mäuse gefangen, wie viele pro Raum? Wie hängen Fallen und Orchester (`ORCH.DXR`, `INSTRUM.DXR`) damit zusammen?
   - Welche Cast-Member und Sprite-Kanäle sind Mäuse bzw. anklickbare Fallen? Daran erkennt die Treffhilfe (T5.3) ihre Ziele.
   - Wie wird der Klick erkannt: `mouseDown` oder `mouseUp`, Sprite-, Cast- oder Frame-Skript, `the clickOn`, `the mouseH`/`the mouseV`?
@@ -82,6 +93,14 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
   - Wofür werden `rollOver` (`GGMDMENU`, `ATTIC`/`rollovermap`) und die Tastenabfragen (`keyCode`, `commandDown`, `optionDown`) gebraucht?
 
   *Fertig, wenn:* für jeden Fangraum die Maus-Sprites mit Größe, Sichtbarkeitsdauer und Klicklogik aufgelistet sind und geklärt ist, wofür Hover und Tasten gebraucht werden.
+  → Erledigt: `docs/mouse-catching.md` und `docs/room-stats.md` (erzeugt von `tools/room_stats.py`). Kernpunkte:
+    - **Fangen:** Die laufende Maus ist ein Score-Sprite mit `on mouseDown caught()`; gefangen wird also beim **Aufsetzen**.
+    - **Verstecke:** Sprites 30+ mit `on mouseUp clicked()`, 8–10 pro Raum.
+    - **Laufzeit:** Median 34 Frames, also 4,2 s auf Level 1 und 1,5 s auf Level 3 nach 15 Mäusen; der kürzeste Weg dauert 0,36 s.
+    - **Größe:** Die Maus misst etwa 19×14 Touch-Pixel.
+    - **Fallen:** Die Animationen `1.x`–`5.x` sind ebenfalls fangbar.
+    - **Hover:** Das Mausometer reagiert auf `rollOver` und muss per Ziehen bedienbar sein.
+    - **Tasten:** Esc (Beenden-Dialog), Return (Namenseingabe).
 
 ## Phase 3: ScummVM auf dem PC
 

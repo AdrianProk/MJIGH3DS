@@ -24,7 +24,7 @@ Das ISO wurde bereits nur lesend untersucht. Diese Fakten gelten als gesichert:
 | Spieldaten gesamt | ca. 180 MB (DXR + MOV ≈ 107 MB, AIFF ≈ 72 MB) |
 | Beilagen (ignorieren) | `AC/` (Acrobat), `IE/` (IE5), `NC/` (Netscape), `NORMAN/` (Virenscanner), `DBEVALCD/`, `PRONTO/`, `PACKER/`, `PMEASY/`, `NTSP/`, `QT/`, `SETUP/`, `SHOPPING/`, `MEDI8OR/` (Autorun-Launcher der CD) |
 | Noch unklar | `GALLERY.EXE` (5,1 MB), `PEARL.EXE` (8 MB), `ONLINE.EXE`, `BILDER/*.BMP`, `AUFTRAG.PDF`, `KONFIG.PDF` |
-| Spielmechanik (aus den Lingo-Namenstabellen `Lnam`) | Alle Raum-Filme kennen `mouseDown`/`mouseUp`, `clicked` und `caught`. Dazu kommen `mymouse`, `waitmouse`, `holdmouse`, `movemouse`, Verstecke (`hideplaces`, `hidepos`), Fallen (`settraps`, `selecttrap`, `checktrap`, `trapsdone`), der Zähler `miceCaught`/`countup` und der Orchesteraufbau (`buildorchestra`, `instrument`, `ORCH.DXR`, `INSTRUM.DXR`). **Damit ist bestätigt, dass man die Mäuse per Klick fängt.** Der genaue Ablauf folgt in T2.6. |
+| Spielmechanik (aus den Lingo-Namenstabellen `Lnam`) | Alle Raum-Filme kennen `mouseDown`/`mouseUp`, `clicked` und `caught`. Dazu kommen `mymouse`, `waitmouse`, `holdmouse`, `movemouse`, Verstecke (`hideplaces`, `hidepos`), Fallen (`settraps`, `selecttrap`, `checktrap`, `trapsdone`), der Zähler `miceCaught`/`countup` und der Orchesteraufbau (`buildorchestra`, `instrument`, `ORCH.DXR`, `INSTRUM.DXR`). **Damit ist bestätigt, dass man die Mäuse per Klick fängt.** Details nach der Dekompilierung in `docs/mouse-catching.md`: Gefangen wird beim `mouseDown` auf die laufende Maus. Die Maus misst etwa 39×28 px, also 19×14 auf dem Touchscreen, und läuft im Median 4,2 s (Level 1) bis 1,5 s (Level 3, spät im Spiel). |
 | Hover und Tasten | `rollOver` in `GGMDMENU` und `ATTIC` (`rollovermap`); `keyCode`, `commandDown`, `optionDown` in `SHARED.DXR` |
 | Speichern | `GGMDMENU` nutzt `FileIO` (`mReadString`, `loadgame`, `savelist`) |
 
@@ -159,4 +159,5 @@ MJIGH3DS/
 | Schlechte Lesbarkeit bei 320×240 | Lupe auf dem oberen Bildschirm mit 1:1-Ausschnitt; Skalierungsfilter vergleichen (T5.1) |
 | Videos auf dem 3DS zu langsam | Auf echter Hardware messen; Optimierung oder notfalls vorab umkodierte Videos (nur als lokaler Konvertierungsschritt für den Nutzer, nicht im Repo) |
 | Speichermangel auf dem Old 3DS | Speicher messen; New 3DS als Ziel, Old 3DS als Best Effort |
-| `LINGO.INI`-Pfade (`D:\`) oder CD-Prüfungen | Prüfen, wie ScummVM `LINGO.INI` und Laufwerkspfade behandelt; bei Bedarf ein Quirk |
+| `LINGO.INI`-Pfade (`D:\`) oder CD-Prüfungen | Prüfen, wie ScummVM `LINGO.INI` und Laufwerkspfade behandelt; bei Bedarf ein Quirk. Die Anforderungen stehen in `docs/dependencies.md` |
+| Warteschleifen in Lingo (`wait` über `the timer`, leere Zählschleifen, `the mouseDown`/`the soundBusy`/`the movieRate` innerhalb von Schleifen) | Gezielt in T3.4 testen (Fallen, Hilfe des Katers, Raumstart). Bei Hängern die Event-Verarbeitung in der Engine nachbessern |

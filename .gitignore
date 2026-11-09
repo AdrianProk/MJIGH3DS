@@ -1,0 +1,26 @@
+# Originaldaten des Spiels: urheberrechtlich geschützt und zu groß für GitHub.
+# Niemals committen oder pushen.
+original/
+game/
+*.iso
+*.zip
+
+# Dekompilierter Lingo-Code und Dumps (vom Original abgeleitet, nur lokal)
+analysis/
+
+# ScummVM-Arbeitskopie (eigene Änderungen liegen als Patches in patches/)
+scummvm/
+
+# Build-Ausgaben
+dist/
+*.3dsx
+*.cia
+*.smdh
+*.elf
+
+# Python
+__pycache__/
+*.pyc
+
+# Fremdwerkzeuge (z. B. ProjectorRays-Binary), lokal heruntergeladen
+vendor/

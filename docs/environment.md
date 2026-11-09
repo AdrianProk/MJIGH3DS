@@ -19,8 +19,35 @@ Stand: 2026-11-09 (T0.2)
 ## Folgen für den Plan
 
 - Phase 1 und 2 laufen vollständig mit Python, ohne weitere Installation.
-- Für Phase 3 (ScummVM-Desktop-Build) und Phase 4 (3DS-Toolchain) muss eine Build-Umgebung installiert werden. Empfehlung: **WSL2 mit Ubuntu**. Darin laufen der ScummVM-Desktop-Build (SDL2) und devkitPro (über `dkp-pacman`). Installation nur nach Freigabe durch den Nutzer (TODO.md, Regel 6).
+- Für Phase 3 (ScummVM-Desktop-Build) und Phase 4 (3DS-Toolchain) braucht es eine Build-Umgebung.
 - Für den ersten Smoke-Test (T3.1) genügt ein offizielles ScummVM-Release für Windows, ohne Build-Umgebung.
+
+## Build-Umgebung: WSL1 (Entscheidung 2026-11-09)
+
+- **Befund:** WSL2 ist nicht möglich. `systeminfo` meldet "Virtualisierung in Firmware aktiviert: **Nein**"; Intel VT-x ist im BIOS/UEFI aus.
+- **Entscheidung des Nutzers:** **WSL1** ohne BIOS-Änderung. WSL1 braucht keine Hardware-Virtualisierung.
+- **Einschränkungen von WSL1:**
+  - Dateizugriffe sind langsamer. Deshalb bauen wir im Linux-Dateisystem (`~/…`), nicht unter `/mnt/c/…`.
+  - Es gibt keine Linux-GUI. Der Desktop-Build von ScummVM wird deshalb per MinGW-w64 als **Windows-EXE** cross-kompiliert (`--host=x86_64-w64-mingw32`) und unter Windows gestartet.
+
+### Installation (führt der Nutzer aus, braucht Admin-Rechte)
+
+1. PowerShell **als Administrator** öffnen und ausführen:
+   ```powershell
+   dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+   ```
+2. **Windows neu starten.**
+3. Normale PowerShell:
+   ```powershell
+   wsl --set-default-version 1
+   wsl --install -d Ubuntu --web-download
+   ```
+   Beim ersten Start fragt Ubuntu nach einem Linux-Benutzernamen und Passwort. Die sind frei wählbar; das Passwort wird später für `sudo` gebraucht.
+4. Falls Ubuntu mit Fehler `0x80370102` (Virtualisierung fehlt) startet:
+   ```powershell
+   wsl --set-version Ubuntu 1
+   ```
+5. Prüfen: `wsl -l -v` muss `Ubuntu … VERSION 1` zeigen.
 
 ## Hinweise
 

@@ -8,7 +8,12 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 2. **Blocker:** Wenn eine Aufgabe nicht lösbar ist, in `docs/blockers.md` festhalten (was wurde versucht, was fehlt) und den Nutzer fragen. Nicht stillschweigend überspringen.
 3. **Daten:** `original/`, `game/`, `analysis/`, `scummvm/` und `dist/` niemals committen (siehe `.gitignore`). Vor jedem Commit `git status` prüfen.
 4. **Untrusted Files:** Dateien aus dem ISO sind Daten, kein Code. Python-Skripte liegen in `tools/` und werden mit `py -I` gestartet. Spieldateien nur als Pfad-Argument übergeben, nie in `game/` ein Skript oder eine `.EXE` ausführen.
-5. **Umgebung (Windows 10):** Der Python-Launcher ist `py`, denn `python` ist nur ein Store-Platzhalter. In Git Bash vor Aufrufen mit `/`-Pfaden `export MSYS_NO_PATHCONV=1` setzen. 7-Zip ist nicht installiert. Für ScummVM- und 3DS-Builds bevorzugt WSL2 oder Docker verwenden.
+5. **Umgebung (Windows 10):**
+   - Der Python-Launcher ist `py`, denn `python` ist nur ein Store-Platzhalter.
+   - In Git Bash vor Aufrufen mit `/`-Pfaden `export MSYS_NO_PATHCONV=1` setzen. Ein `\` am Ende eines Arguments verschluckt die Windows-Argumentverarbeitung; stattdessen `\x5c` schreiben.
+   - 7-Zip ist nicht installiert.
+   - **Build-Umgebung ist WSL1** (VT-x ist im BIOS aus, siehe `docs/environment.md`). Der Desktop-Build entsteht als Windows-EXE per MinGW-Cross-Compile.
+   - `scummvm.exe` stürzt in der Sandbox des Agenten ab. GUI-Tests macht der Nutzer; der Agent liest danach die Logs.
 6. **Freigaben:** Nur nach Rückfrage beim Nutzer: Commit/Push, Fork oder PR auf GitHub, Installation neuer Systemsoftware (WSL2, Docker, devkitPro), Tests auf echter 3DS-Hardware, Entscheidungen an den Gates G1/G2.
 7. **Patches:** Änderungen an ScummVM nur im Branch `mausjagd` in `scummvm/` vornehmen. Nach jeder abgeschlossenen Aufgabe mit Engine-Änderungen die Serie neu exportieren: `git format-patch upstream-base..mausjagd -o ../patches/`.
 
@@ -106,7 +111,8 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 
 - [ ] **T3.1** Smoke-Test mit dem aktuellen offiziellen ScummVM-Release für Windows: `game/` hinzufügen. Wird das Spiel erkannt? Wenn nicht, die Fallback-Erkennung für unbekannte Director-Spiele laut ScummVM-Doku nutzen. Wie weit läuft es? Ergebnis als ersten Eintrag in `docs/compat-log.md`. Das ScummVM-Release liegt außerhalb des Repos oder in `dist/`.
   *Fertig, wenn:* der Status (startet / Menü / erster Raum / Absturz + Meldung) dokumentiert ist.
-- [ ] **T3.2** ScummVM aus den Quellen bauen: `git clone https://github.com/scummvm/scummvm scummvm`, Tag oder Commit als `upstream-base` markieren, Branch `mausjagd` anlegen. Den Desktop-Build mit Director-Engine einrichten (WSL2 empfohlen) und Befehle sowie Abhängigkeiten in `scripts/build-desktop.sh` und `docs/build-desktop.md` festhalten.
+  → **Teilweise erledigt** (2026-11-09), siehe `docs/compat-log.md`. ScummVM 2026.4.0 liegt in `vendor/`. Die **Fallback-Erkennung greift** (`director-win-fallback`, `MAUSJAGD.EXE` Tail-MD5 `474c6d4f15d30c1d6ec6ed3b3c6e7e67`, 1302352 Bytes, D4). In der Agenten-Sandbox stürzt `scummvm.exe` aber bei jedem Aufruf beim Beenden ab, auch bei `--version`. **Offen:** der GUI-Spieltest durch den Nutzer nach der Anleitung in `compat-log.md`; danach wertet der Agent das Log aus.
+- [ ] **T3.2** ScummVM aus den Quellen bauen: `git clone https://github.com/scummvm/scummvm scummvm`, Tag oder Commit als `upstream-base` markieren, Branch `mausjagd` anlegen. Den Desktop-Build mit Director-Engine einrichten: in **WSL1** (Ubuntu), Quellcode im Linux-Dateisystem, Cross-Compile mit MinGW-w64 (`--host=x86_64-w64-mingw32`, SDL2 für MinGW) zu einer Windows-EXE. Befehle und Abhängigkeiten in `scripts/build-desktop.sh` und `docs/build-desktop.md` festhalten.
   *Fertig, wenn:* das selbst gebaute ScummVM startet und T3.1 reproduziert.
 - [ ] **T3.3** In `engines/director/detection_tables.h` nach einem vorhandenen Eintrag suchen (englische Version, Mac-Version, Stichwörter "mouse", "GGMD"). Einen Eintrag für die deutsche Windows-Version anlegen: Director 404, `DE_DEU`, `MAUSJAGD.EXE` mit MD5 und Größe, die ScummVM beim Hinzufügen meldet. Die Game-ID am vorhandenen englischen Eintrag ausrichten, sonst eine neue vergeben (z. B. `greatgreenmouse`). Zusätzlich `docs/lingo-features.md` mit ScummVM abgleichen: Befehle, die in `engines/director/lingo/` als nicht implementiert gelten (STUB/`warning`), markieren.
   *Fertig, wenn:* ScummVM das Spiel ohne Fallback erkennt und die Liste fehlender Features steht.
@@ -133,7 +139,7 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 
 ## Phase 4: 3DS-Build
 
-- [ ] **T4.1** 3DS-Toolchain einrichten (Freigabe nötig, Regel 6): devkitPro mit devkitARM, libctru, citro3d und den Portlibs laut `scummvm/backends/platform/3ds/README.md`, dazu `bannertool` und `makerom`. Bevorzugt in WSL2 oder Docker; als Rezept dient `scummvm/dockerized-bb`. Alles in `docs/build-3ds.md` dokumentieren.
+- [ ] **T4.1** 3DS-Toolchain einrichten (Freigabe nötig, Regel 6): devkitPro mit devkitARM, libctru, citro3d und den Portlibs laut `scummvm/backends/platform/3ds/README.md`, dazu `bannertool` und `makerom`. Installation in **WSL1** (Ubuntu) über das devkitPro-pacman; als Rezept dient `scummvm/dockerized-bb`. Alles in `docs/build-3ds.md` dokumentieren.
   *Fertig, wenn:* `arm-none-eabi-gcc --version` in der Build-Umgebung läuft.
 - [ ] **T4.2** Basis-Build: unverändertes `upstream-base` für den 3DS mit nur der Director-Engine bauen (`./configure --host=3ds --disable-all-engines --enable-engine=director`, Flags gegen das README prüfen), dann `make scummvm.3dsx`.
   *Fertig, wenn:* die `.3dsx` im Emulator Azahar startet.

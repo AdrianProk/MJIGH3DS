@@ -117,13 +117,15 @@ MJIGH3DS/
 
 ## 6. Technische Eckpunkte
 
-**Desktop-Build (Phase 3):** am einfachsten in WSL2 (Ubuntu) mit `./configure --enable-engine=director` (SDL2) und `make`. Unter Windows geht alternativ MSYS2/MinGW64. Für den ersten Smoke-Test reicht ein offizielles ScummVM-Release für Windows.
+**Build-Umgebung:** **WSL1** mit Ubuntu. WSL2 geht nicht, weil VT-x im BIOS aus ist; siehe `docs/environment.md`.
+
+**Desktop-Build (Phase 3):** in WSL1 per MinGW-w64-Cross-Compile zu einer Windows-EXE (`./configure --host=x86_64-w64-mingw32 --disable-all-engines --enable-engine=director`). Für den ersten Smoke-Test reicht das offizielle ScummVM-Release 2026.4.0 für Windows.
 
 **ScummVM-Erkennung:** Den Eintrag in `engines/director/detection_tables.h` nach dem Muster bestehender D4-Windows-Einträge anlegen (Version 404, Sprache `DE_DEU`, Projektor `MAUSJAGD.EXE`). Vorher prüfen, ob die englische Version schon einen Eintrag hat und welche Game-ID sie nutzt.
 
 **Debugging:** Die Debug-Kanäle der Director-Engine (`scummvm --list-debugflags`, z. B. `lingo`, `loading`, `score`, `sound`, `video`) und das Dumpen der Skripte nutzen. Dann mit der Ausgabe von ProjectorRays vergleichen.
 
-**3DS-Toolchain (Phase 4):** devkitPro mit devkitARM, libctru, citro3d und den 3DS-Portlibs, die `backends/platform/3ds/README.md` von ScummVM verlangt. Dazu `bannertool` und `makerom` für die CIA. Bevorzugt in WSL2 oder Docker; das ScummVM-Projekt `dockerized-bb` enthält ein 3DS-Toolchain-Rezept.
+**3DS-Toolchain (Phase 4):** devkitPro mit devkitARM, libctru, citro3d und den 3DS-Portlibs, die `backends/platform/3ds/README.md` von ScummVM verlangt. Dazu `bannertool` und `makerom` für die CIA. Die Installation erfolgt in WSL1 über das devkitPro-pacman; das ScummVM-Projekt `dockerized-bb` enthält ein Rezept für die 3DS-Toolchain.
 
 **3DS-Build:** `./configure --host=3ds --disable-all-engines --enable-engine=director`, dann `make scummvm.3dsx` bzw. `make scummvm.cia`. Die Flags sind gegen das aktuelle README zu prüfen.
 

@@ -4,6 +4,23 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-10 – Erster spielbarer Lauf im Emulator Azahar
+
+- **Build:** `mausjagd.3dsx`, Fork `a485c59020` (Patches 0001–0004), Spieldaten in der RomFS. Auf der virtuellen SD liegt `dspfirm.cdc`.
+- **Läuft:** Direktstart, Erkennung in `romfs:/game`, Startfilm, Menü, Intro-Video komplett mit Ton, erster Raum.
+- **Log** (`%APPDATA%\Azahar\sdmc\3ds\mausjagd\scummvm.log`):
+  - geöffnet 19:29:51, `Running The Great Green Mouse Disaster (Windows/German)` um 19:31:36
+  - `3ds initsize w:640 h:480`, `pixelformat: 1 0 0 0 0` (CLUT8)
+  - `FileIO … D:\saveinfo.txt` fehlt beim ersten Start; das ist normal.
+- **Befunde** (Nutzer, Details und Aufgaben in PLAN.md §9):
+  - B1: verzerrtes Bild beim Fangen einer Maus
+  - B2: Einbruch auf 5 FPS
+  - B3: Figuren weiß, bis die Raummusik endet
+  - B4: Rechteck um den Tippunkt
+  - B5: ScummVM-Warnung beim Start
+  - B6: lange Startzeit
+- **Einordnung Desktop/3DS:** offen (T4.6).
+
 ### 2026-11-10 – Eigener Linux-Build, Läufe ohne Fenster
 
 Build: `upstream-base` `7c924b93`, nur die Director-Engine, siehe `docs/build-desktop.md`. Bild und Ton liefen über die SDL-Dummy-Treiber, Eingaben gab es keine.

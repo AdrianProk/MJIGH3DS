@@ -169,12 +169,60 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
     - **Offen:** Test auf dem Gerät, Lauf auf frischem Checkout.
 - [ ] **T4.4** Emulator-Test in Azahar: `game/` auf die virtuelle SD kopieren, das Spiel hinzufügen und Menü sowie ersten Raum starten. Danach die Matrix aus T3.4 als zweite Spalte "3DS-Emu" durchgehen.
   *Fertig, wenn:* die Spalte ausgefüllt ist.
+  → **Erster Lauf** (2026-11-10, Nutzer): Port-Build mit eingebetteten Daten und `dspfirm.cdc` auf der virtuellen SD.
+    - Läuft: Direktstart, Startfilm, Menü, Intro mit Ton und der erste Raum.
+    - Befunde B1–B6 (Verzerrung und 5 FPS beim Fangen, weiße Figuren, Rechteck beim Tippen, Startwarnung, lange Startzeit) stehen in PLAN.md §9 und werden in T4.6–T4.12 bearbeitet.
+    - Die Matrix-Spalte folgt nach deren Behebung.
 - [ ] **T4.5** Test auf echter Hardware (Freigabe und Hilfe des Nutzers nötig): New 3DS und, falls vorhanden, Old 3DS, per `3dslink` oder als CIA.
   *Fertig, wenn:* die Spalten "New 3DS" und "Old 3DS" in der Matrix ausgefüllt sind.
   → **Stand 2026-11-10:** Der Nutzer hat einen **New 3DS / New 2DS XL** mit Homebrew Launcher. Getestet wird zuerst die `.3dsx`, Anleitung in `docs/compat-log.md`.
     - **CIA zurückgestellt:** Der Nutzer wünscht ein CIA. Dafür fehlen `makerom` (3DSGuy/Project_CTR v0.19.0, SHA-256 `287b809d…`) und `bannertool` (carstene1ns/3ds-bannertool 1.2.3, SHA-256 `748519d2…`). Die Sicherheitsprüfung hat Download und Ausführung ohne ausdrückliche Freigabe abgelehnt ("Code from External").
     - Gebaut wird dann mit `make scummvm.cia` (Regeln in `backends/platform/3ds/3ds.mk`).
     - Die RSF hat `UniqueId 0xFF321`, dieselbe wie das offizielle ScummVM; eine eigene ID folgt mit der Paketierung.
+
+### Befunde aus dem ersten 3DS-Lauf (PLAN.md §9)
+
+Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fix kommt als Patch (Regel 7) und mit Vorher/Nachher in `docs/compat-log.md`. Leistungswerte aus dem Emulator sind nur Näherungen; die endgültigen kommen von echter Hardware (T4.5, T5.5).
+
+- [ ] **T4.6** Testhilfen und Einordnung der Befunde B1–B6.
+  - **Diagnose-Build:** `scripts/build-3ds.sh` bekommt die Option `DIAG=1`. Der Port-Start hängt dann `--debuglevel=1 --debugflags=loading` (oder vergleichbar) an die Argumente an und schreibt Zeitstempel ins Log: App-Start, Backend bereit, Erkennung fertig, Engine-Start, erster Frame. So stehen geladene Filme (Räume) und die Startphasen im Log.
+  - **Desktop-Vergleich (Nutzer):** dieselben Szenen im offiziellen ScummVM 2026.4.0 für Windows (`vendor/scummvm-release/…`): Raum betreten, warten, antippen bzw. klicken, eine Maus fangen. Notieren, ob B1, B3 und B4 auch dort auftreten.
+  - **Desktop-Vergleich (Agent):** den betroffenen Raum im eigenen Linux-Build ohne Fenster starten (Target `ggmd-win-de`, Startfilm per `--start-movie=<RAUM>.DXR`) und mit den Debug-Kanälen `loading`, `images`, `events`, `sound` und `lingoexec` die Abläufe aus B1 und B3 nachvollziehen. Fehlende Eingaben ersetzen (z. B. `caught()` über die Lingo-Konsole des Debuggers aufrufen oder per ScummVM-Event-Recorder).
+  *Fertig, wenn:* in `docs/compat-log.md` für B1–B6 jeweils "Desktop: ja/nein" und damit "Engine" oder "3DS-Backend/Leistung" steht und die betroffenen Räume bzw. Videos benannt sind.
+- [ ] **T4.7** **B5:** ScummVM-Warnung beim Start entfernen.
+  - Ursache: `ADGF_UNSTABLE` aller Director-Einträge führt zu `Engine::warnUserAboutUnsupportedGame()`.
+  - Im Port-Modus `enable_unsupported_game_warning` standardmäßig auf `false` setzen, als 3DS-Patch hinter `#ifdef MAUSJAGD_PORT`. Den Erkennungseintrag nicht ändern.
+  - Danach prüfen, ob beim Kaltstart (leerer App-Ordner) weitere Dialoge oder Hinweise erscheinen, und auch diese abschalten.
+  *Fertig, wenn:* ein Kaltstart im Emulator ohne jeden ScummVM-Dialog direkt im Startbildschirm des Spiels landet.
+- [ ] **T4.8** **B6:** Startzeit messen und verkürzen.
+  - Mit den Zeitstempeln aus T4.6 die Phasen messen: Laden der `.3dsx`, Backend-Init, Erkennung (durchsucht die RomFS mit 442 Dateien, Scan-Tiefe 5, MD5), Engine-Init, `SHARED.DXR`, erster Frame.
+  - Kandidaten: Erkennung im Port verkürzen (z. B. mit vorkonfiguriertem Target bzw. Variante, oder nur `MAUSJAGD.EXE`/`SHARED.DXR` prüfen), RomFS-Zugriffe bündeln.
+  - Die Pausen des Startbildschirms sind original und bleiben.
+  *Fertig, wenn:* Messwerte vorher/nachher in `docs/performance.md` stehen und die App auf dem New 3DS nach höchstens 10 s den Startbildschirm zeigt (PLAN.md §3), oder begründet ist, warum nicht.
+- [ ] **T4.9** **B3:** Figuren beim Betreten eines Raums weiß, bis die Raummusik endet.
+  - Raum bestimmen (T4.6).
+  - Lingo des Raums lesen (`analysis/lingo/<RAUM>/`): Raumstart, `puppetSound`/`soundBusy`-Schleifen, `puppetPalette`, Ink und `updateStage`.
+  - Klären, ob das Original die Figuren erst nach der Musik zeigt; dann wäre der Befund das Weiß statt "unsichtbar".
+  - Ursache in Palette, Ink-Rendering (Matte/Copy/Background Transparent) oder Zeichenreihenfolge finden.
+  *Fertig, wenn:* die Figuren so erscheinen, wie es die Lingo-Logik und der Desktop-Vergleich vorgeben, in allen Räumen mit gleichem Aufbau.
+- [ ] **T4.10** **B4:** Rechteck um den Tippunkt.
+  - Mit dem Desktop-Vergleich und dem Code klären, woher es kommt:
+    - (a) Zeiger-Bitmap (`cursor(200)` u. a., Director-Cursor mit Maske) im 3DS-Backend ohne Transparenz
+    - (b) "Hilite" geklickter Sprites als invertiertes Rechteck
+    - (c) Touch-Feedback des Backends
+  - Bezug zu PLAN.md §3: Der Cursor wird auf dem Touchscreen ohnehin ausgeblendet (T5.1/T5.2). Lösen sollen das Problem aber nicht nur die Ausblendung, sondern die Ursache, weil der Cursor in der Lupe sichtbar bleibt.
+  *Fertig, wenn:* beim Tippen kein Rechteck mehr erscheint, vom Spiel vorgesehene Hervorhebungen erhalten bleiben und der Cursor (wo sichtbar) korrekt mit Transparenz gezeichnet wird.
+- [ ] **T4.11** **B1:** Verzerrtes Bild beim bzw. nach dem Fangen einer Maus.
+  - Bestätigen, dass es um das Missgeschick-Video (`<RAUM>.MOV`) geht.
+  - Abmessungen, Codec (SMC), Farbtiefe und Palette des Videos bestimmen, z. B. mit `tools/` oder ScummVM-Debugausgaben.
+  - Den Datenweg prüfen: Videoframe → Director-Sprite → Bühne (CLUT8) → 3DS-Backend (`copyRectToScreen`, Pitch, `initSize`/Größenwechsel, Skalierung 640×480 → Bildschirm). Screenshot im Emulator; Desktop-Vergleich.
+  *Fertig, wenn:* die Missgeschick-Videos der 19 Fangräume unverzerrt laufen, stichprobenartig im Emulator und vollständig per Desktop-Vergleich. Intro- und Hilfevideos werden mitgeprüft.
+- [ ] **T4.12** **B2:** Einbruch auf 5 FPS beim Fangen.
+  - Zeitmessung im 3DS-Build: Dekodieren, Palettenumrechnung bzw. Dithering (`setDitheringPalette`), Kopieren auf die Bühne, Skalierung bzw. Übertragung zur GPU.
+  - Erst nach T4.11 bewerten, weil die Verzerrung die Ursache sein kann (z. B. falsche Größe → falscher Pfad).
+  - Kandidaten: Dithering-Tabellen einmal pro Video statt pro Frame aufbauen, die Videopalette direkt übernehmen, nur geänderte Bereiche aktualisieren (Dirty Rects).
+  - Ergebnisse in `docs/performance.md`. Allgemeine Optimierung für beide Modelle folgt in T5.7.
+  *Fertig, wenn:* Missgeschick-Videos im Emulator (New-3DS-Modus) in ihrer Original-Bildrate laufen und der Wert auf dem Old 3DS gemessen und eingetragen ist.
 
 ## Phase 5: 3DS-Anpassung
 

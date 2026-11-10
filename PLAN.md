@@ -71,6 +71,8 @@ Daraus folgen drei Arbeitsfelder:
 | Cursor | Auf dem Touchscreen ausgeblendet, denn der Stift ist der Zeiger. In der Lupe oben ist er sichtbar. |
 | Oberer Bildschirm | **Lupe:** ein 1:1-Ausschnitt (400×240) der Originalgrafik um den letzten Tippunkt, für Details und Texte. Optional später: eine Anzeige der gefangenen Mäuse aus `miceCaught` (Phase 7). |
 | Tasten | Zusätzlich, für das Spielen ohne Stift: Circle Pad/Steuerkreuz = Zeiger, A = Klick, START = ScummVM-Menü, SELECT = Lupe an/aus. Falls das Spiel Tasten abfragt (`keyCode`, `commandDown`, `optionDown`), werden diese auf freie Tasten gelegt. |
+| Start | Die App startet **direkt ins Spiel**: kein ScummVM-Launcher (umgesetzt) und **kein ScummVM-Dialog**, auch keine Warnung "nicht unterstützt". Ziel: spielbereit nach höchstens 10 s auf dem New 3DS. Die Pausen des Startbildschirms gehören zum Original und zählen nicht mit. |
+| Tipp-Feedback | Beim Antippen erscheinen **keine Artefakte** wie Rechtecke oder Zeigerreste. Erhalten bleibt nur, was das Original selbst anzeigt (z. B. Hervorhebungen, die das Spiel vorsieht). |
 
 Was das 3DS-Backend von ScummVM davon schon kann (Bildschirmwahl, Touch-Modus, Lupe), prüft T5.1. Fehlendes wird im Backend (`backends/platform/3ds/`) oder in der Director-Engine ergänzt. Beides wird als Patch nach `patches/` exportiert.
 
@@ -107,11 +109,16 @@ MJIGH3DS/
 | 2 | Analyse und Lingo-Dekompilierung | Spielablauf, Abhängigkeiten und benutzte Lingo-Features dokumentiert |
 | 3 | ScummVM auf dem PC | Spiel läuft auf dem Desktop komplett durch |
 | **G1** | **Gate** | Ist das Spiel auf dem PC von Anfang bis Ende spielbar? Nein, mit grundlegenden Blockern → Nutzer fragen. |
-| 4 | 3DS-Build | ScummVM mit unserem Branch läuft im Emulator und auf echter Hardware |
+| 4 | 3DS-Build | ScummVM mit unserem Branch läuft im Emulator und auf echter Hardware; die Befunde aus dem ersten 3DS-Lauf (§9) sind behoben |
 | 5 | 3DS-Anpassung | Spiel auf dem Touchscreen, Mäuse per Antippen fangbar (mit Treffhilfe), Lupe oben, flüssige Videos, kein Speichermangel |
 | **G2** | **Gate** | Lassen sich die Mäuse per Touch zuverlässig fangen? Ist es auf dem New 3DS **und** dem Old 3DS gut spielbar? |
 | 6 | Packaging | CIA/3DSX, die direkt ins Spiel startet, plus Endnutzer-README |
 | 7 | optional | Upstream-PR an ScummVM, englische Version |
+
+**Reihenfolge seit 2026-11-10:**
+- Phase 3 ist nur teilweise abgeschlossen. Der eigene Linux-Build läuft ohne Fenster bis ins Menü; ein Durchspielen am PC (G1) steht noch aus.
+- Auf Wunsch des Nutzers ging es direkt mit dem 3DS weiter (Phase 4). Getestet wird vorrangig im Emulator Azahar.
+- G1 läuft jetzt parallel: Der Desktop-Vergleich zu den Befunden aus §9 (T4.6) trennt Fehler der Engine von Fehlern des 3DS-Backends und liefert damit auch die Grundlage für G1.
 
 ---
 
@@ -174,3 +181,44 @@ MJIGH3DS/
 | Speichermangel oder Ruckeln auf dem Old 3DS | Früh auf Old-3DS-Bedingungen testen (Azahar ohne New-3DS-Modus und mit gedrosseltem CPU-Takt, sonst echte Hardware); Speicher und Bildrate messen (T5.5/T5.6); gezielt optimieren (T5.7). Fürs CIA mehr Speicher anfordern (`SystemMode` 80 MB) |
 | `LINGO.INI`-Pfade (`D:\`) oder CD-Prüfungen | Prüfen, wie ScummVM `LINGO.INI` und Laufwerkspfade behandelt; bei Bedarf ein Quirk. Die Anforderungen stehen in `docs/dependencies.md` |
 | Warteschleifen in Lingo (`wait` über `the timer`, leere Zählschleifen, `the mouseDown`/`the soundBusy`/`the movieRate` innerhalb von Schleifen) | Gezielt in T3.4 testen (Fallen, Hilfe des Katers, Raumstart). Bei Hängern die Event-Verarbeitung in der Engine nachbessern |
+
+---
+
+## 9. Befunde aus dem ersten 3DS-Lauf (2026-11-10)
+
+**Aufbau:**
+- Port-Build `mausjagd.3dsx`: Patches 0001–0004, Spieldaten in der RomFS.
+- Emulator Azahar mit `dspfirm.cdc` auf der virtuellen SD-Karte.
+- Getestet hat der Nutzer; Log unter `%APPDATA%\Azahar\sdmc\3ds\mausjagd\scummvm.log`.
+
+**Was funktioniert:**
+- Direktstart ohne Launcher; die Erkennung findet `ggmd` in `romfs:/game`.
+- Startfilm, Menü und Intro-Video laufen komplett und mit Ton.
+- Der erste Raum wird geladen.
+- Die CD-Prüfung (`D:\lingo.ini`) und FileIO funktionieren. Fehlt `saveinfo.txt` beim ersten Start, ist das normal.
+
+**Befunde:**
+
+| ID | Befund (Nutzer) | Beleg / erste Einordnung | Hypothesen | Aufgabe |
+|---|---|---|---|---|
+| B1 | Nach dem Fangen einer Maus ist das Bild **verzerrt**: waagerecht verschmiert und versetzt, oben links ein Teilbild | Screenshot vom Nutzer. Nach dem Fangen läuft laut T2.6 das Missgeschick-Video (`<RAUM>.MOV`, QuickTime SMC). | Falscher Zeilenabstand (Pitch) bzw. falsche Breite beim Übertragen des Videoframes auf die Bühne; Größenwechsel im 3DS-Backend (`initSize`); Pixelformat Video ↔ Bühne (CLUT8) | T4.11 |
+| B2 | Beim Fangen bricht die Bildrate auf **5 FPS** ein (Azahar zeigt "Geschwindigkeit 100 %, App 5 FPS") | Der Emulator läuft in voller Geschwindigkeit, also ist die emulierte CPU der Engpass | Videodekodierung (SMC), Umrechnung bzw. Dithering der Videopalette auf die Bühnenpalette pro Frame, Vollbild-Updates und Skalierung. Hängt vermutlich mit B1 zusammen | T4.12 |
+| B3 | Beim Betreten des Raums sind die **Figuren weiß**, bis die Intro-Musik des Raums endet | Noch nicht reproduziert | Palette bzw. Ink (Matte/Copy) zu früh gezeichnet; Farbtabelle erst nach der Musik gesetzt; Cast-Member nachgeladen; Raumstart-Schleife mit `soundBusy`/`updateStage` | T4.9 |
+| B4 | Beim Antippen entsteht ein **Rechteck** um den Tippunkt | Noch nicht reproduziert | Zeiger-Bitmap (`cursor(200)` u. a.) ohne Transparenz im 3DS-Backend; "Hilite" geklickter Sprites als invertiertes Rechteck; Touch-Feedback des Backends | T4.10 |
+| B5 | Beim Start erscheint eine **ScummVM-Warnung** | Director-Spiele sind in ScummVM `ADGF_UNSTABLE`, deshalb kommt der Dialog aus `Engine::warnUserAboutUnsupportedGame()`. Abschaltbar über `enable_unsupported_game_warning` | – | T4.7 |
+| B6 | Der **Start dauert sehr lange** | Log: geöffnet 19:29:51, "Running …" um 19:31:36, also 1:45 min, einschließlich Wartezeit am Dialog aus B5 | Erkennung durchsucht die RomFS (442 Dateien, Scan-Tiefe 5, MD5); Laden von `SHARED.DXR`; Emulator-Overhead; die Startbildschirm-Pausen des Originals | T4.8 |
+
+**Vorgehen:**
+1. **Erst einordnen, dann beheben (T4.6).** Jeder Befund wird am Desktop gegengeprüft: im offiziellen ScummVM für Windows (Nutzer) und im eigenen Linux-Build ohne Fenster (Agent). Tritt er auch dort auf, liegt der Fehler in der Director-Engine; sonst im 3DS-Backend oder an der Rechenleistung. Für die 3DS-Läufe kommt Diagnose-Logging dazu: Filmwechsel und Zeitstempel ins Log.
+2. **Reihenfolge:**
+   1. B5 (schnell, stört bei jedem Start)
+   2. B1 und B2 (Kern des Spiels: jedes Fangen zeigt ein Video)
+   3. B4 (Kern der Touch-Bedienung)
+   4. B3
+   5. B6
+3. **Emulator als Näherung:** Azahar bildet Bildrate und CPU-Last nur ungefähr ab, Touch nur per Maus. Endgültige Leistungs- und Touch-Werte kommen von echter Hardware (T4.5, T5.4, T5.5).
+4. **Fixes:**
+   - Engine-Fehler werden allgemein gelöst (Kandidaten für upstream).
+   - Port-spezifisches steht hinter `#ifdef MAUSJAGD_PORT`.
+   - Spielspezifisches kommt als Quirk in `engines/director/game-quirks.cpp`.
+   - Jeder Fix wird als Patch exportiert (Regel 7) und in `docs/compat-log.md` mit Vorher/Nachher eingetragen.

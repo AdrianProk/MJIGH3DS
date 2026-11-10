@@ -1,3 +1,5 @@
 # Shell-Skripte laufen in WSL/Linux und brauchen LF, auch bei core.autocrlf=true
 *.sh text eol=lf
 *.mk text eol=lf
+# Patch-Serie für den ScummVM-Fork: unverändert lassen, damit git am sie anwenden kann
+*.patch -text

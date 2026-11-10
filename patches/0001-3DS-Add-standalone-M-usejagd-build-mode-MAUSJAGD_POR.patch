@@ -1,0 +1,173 @@
+From a3611a4efe6ab702aa5a8d1f271e7763d090bb4a Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 18:03:16 +0100
+Subject: [PATCH] =?UTF-8?q?3DS:=20Add=20standalone=20M=C3=A4usejagd=20buil?=
+ =?UTF-8?q?d=20mode=20(MAUSJAGD=5FPORT)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When built with -DMAUSJAGD_PORT, the 3DS port behaves like a single-game
+app for "Mäusejagd im Grandhotel" (The Great Green Mouse Disaster, German):
+
+- Started without arguments, it runs director:ggmd from
+  sdmc:/3ds/mausjagd/game instead of showing the launcher
+- Config, log and saves live in sdmc:/3ds/mausjagd/, so a regular
+  ScummVM installation is left untouched
+- The "Return to Launcher" button in the global menu is disabled
+
+Without the define, nothing changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp    | 17 +++++++++++++
+ backends/platform/3ds/mausjagd.h  | 42 +++++++++++++++++++++++++++++++
+ backends/platform/3ds/osystem.cpp | 15 +++++++++++
+ engines/dialogs.cpp               |  4 +++
+ 4 files changed, 78 insertions(+)
+ create mode 100644 backends/platform/3ds/mausjagd.h
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index 159bc01eb5..10e80e951f 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -21,6 +21,9 @@
+ 
+ #include "backends/platform/3ds/osystem.h"
+ #include "backends/plugins/3ds/3ds-provider.h"
++#ifdef MAUSJAGD_PORT
++#include "backends/platform/3ds/mausjagd.h"
++#endif
+ 
+ #include <3ds.h>
+ #include <malloc.h>
+@@ -64,6 +67,20 @@ int main(int argc, char *argv[]) {
+ 	PluginManager::instance().addPluginProvider(new CTRPluginProvider());
+ #endif
+ 
++#ifdef MAUSJAGD_PORT
++	// Standalone build: when started without arguments (Homebrew Launcher, HOME menu),
++	// run the game directly from its fixed folder instead of showing the launcher.
++	// ScummVM creates a temporary target for the game ID and detects the variant in --path.
++	static char autoArg0[] = "mausjagd";
++	static char autoArgPath[] = "--path=" MAUSJAGD_GAME_DIR;
++	static char autoArgGame[] = MAUSJAGD_GAME_ID;
++	static char *autoArgv[] = { autoArg0, autoArgPath, autoArgGame, nullptr };
++	if (argc <= 1) {
++		argc = 3;
++		argv = autoArgv;
++	}
++#endif
++
+ 	int res = scummvm_main(argc, argv);
+ 
+ 	g_system->destroy();
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+new file mode 100644
+index 0000000000..32ca5a6fc9
+--- /dev/null
++++ b/backends/platform/3ds/mausjagd.h
+@@ -0,0 +1,42 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#ifndef BACKENDS_PLATFORM_3DS_MAUSJAGD_H
++#define BACKENDS_PLATFORM_3DS_MAUSJAGD_H
++
++// Settings for the standalone "Mäusejagd im Grandhotel" 3DS build.
++// Only used when MAUSJAGD_PORT is defined. The app keeps its config,
++// log, saves and game data in its own folder, so it can live next to
++// a regular ScummVM installation, and starts the game without the launcher.
++
++#ifndef MAUSJAGD_APP_DIR
++#define MAUSJAGD_APP_DIR "sdmc:/3ds/mausjagd/"
++#endif
++
++#ifndef MAUSJAGD_GAME_DIR
++#define MAUSJAGD_GAME_DIR MAUSJAGD_APP_DIR "game"
++#endif
++
++#ifndef MAUSJAGD_GAME_ID
++#define MAUSJAGD_GAME_ID "director:ggmd"
++#endif
++
++#endif
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index d2b7ec84e6..524bedb147 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -37,6 +37,9 @@
+ 
+ #include "backends/fs/posix-drives/posix-drives-fs-factory.h"
+ #include "backends/fs/posix-drives/posix-drives-fs.h"
++#ifdef MAUSJAGD_PORT
++#include "backends/platform/3ds/mausjagd.h"
++#endif
+ #include <unistd.h>
+ #include <time.h>
+ 
+@@ -152,7 +155,11 @@ void OSystem_3DS::initBackend() {
+ 
+ 	_eventManager = new DefaultEventManager(this);
+ 	_timerManager = new DefaultTimerManager();
++#ifdef MAUSJAGD_PORT
++	_savefileManager = new DefaultSaveFileManager(MAUSJAGD_APP_DIR "saves/");
++#else
+ 	_savefileManager = new DefaultSaveFileManager("sdmc:/3ds/scummvm/saves/");
++#endif
+ 
+ 	init3DSGraphics();
+ 	initAudio();
+@@ -185,11 +192,19 @@ void OSystem_3DS::updateConfig() {
+ }
+ 
+ Common::Path OSystem_3DS::getDefaultConfigFileName() {
++#ifdef MAUSJAGD_PORT
++	return MAUSJAGD_APP_DIR "scummvm.ini";
++#else
+ 	return "sdmc:/3ds/scummvm/scummvm.ini";
++#endif
+ }
+ 
+ Common::Path OSystem_3DS::getDefaultLogFileName() {
++#ifdef MAUSJAGD_PORT
++	return MAUSJAGD_APP_DIR "scummvm.log";
++#else
+ 	return "sdmc:/3ds/scummvm/scummvm.log";
++#endif
+ }
+ 
+ void OSystem_3DS::addSysArchivesToSearchSet(Common::SearchSet &s, int priority) {
+diff --git a/engines/dialogs.cpp b/engines/dialogs.cpp
+index 28690bd02a..6f8ad94c3b 100644
+--- a/engines/dialogs.cpp
++++ b/engines/dialogs.cpp
+@@ -89,6 +89,10 @@ MainMenuDialog::MainMenuDialog(Engine *engine)
+ 	else
+ 		_returnToLauncherButton = new GUI::ButtonWidget(this, "GlobalMenu.ReturnToLauncher", _c("~R~eturn to Launcher", "lowres"), Common::U32String(), kLauncherCmd);
+ 	_returnToLauncherButton->setEnabled(_engine->hasFeature(Engine::kSupportsReturnToLauncher));
++#ifdef MAUSJAGD_PORT
++	// Standalone game build: there is no launcher to return to
++	_returnToLauncherButton->setEnabled(false);
++#endif
+ 
+ 	if (!g_system->hasFeature(OSystem::kFeatureNoQuit) && (!(ConfMan.getBool("gui_return_to_launcher_at_exit")) || !_engine->hasFeature(Engine::kSupportsReturnToLauncher)))
+ 		new GUI::ButtonWidget(this, "GlobalMenu.Quit", _("~Q~uit"), Common::U32String(), kQuitCmd);

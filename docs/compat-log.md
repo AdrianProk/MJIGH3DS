@@ -56,6 +56,30 @@ Build: `upstream-base` `7c924b93`, nur die Director-Engine, siehe `docs/build-de
    - Fehlermeldungen oder Abstürze? An welcher Stelle?
 4. ScummVM über "Beenden" schließen (nicht das Fenster abschießen), damit Konfiguration und Log geschrieben werden. Das Log liegt dann im portablen Modus unter `vendor\scummvm-release\scummvm-2026.4.0-win32-x86_64\scummvm.log`, sonst unter `%APPDATA%\ScummVM\Logs\scummvm.log`. Der Agent prüft beide Orte und das Windows-Ereignisprotokoll (Abstürze von `scummvm.exe`).
 
+### 2026-11-10 – Erster Test auf dem New 3DS (unverändertes Build)
+
+- `scummvm.3dsx` aus `upstream-base` über den Homebrew Launcher auf dem New 3DS / New 2DS XL: **funktioniert**, laut Nutzer.
+- Wunsch des Nutzers: Das Spiel soll direkt starten, ohne ScummVM-Launcher. Umgesetzt mit dem Port-Modus `MAUSJAGD_PORT`, siehe `docs/build-3ds.md`. Die SD-Struktur ist jetzt `SD:\3ds\mausjagd\`.
+
+## Anleitung 3DS-Test (T4.5, für den Nutzer)
+
+> **Ab dem Port-Build (`mausjagd.3dsx`) gilt die Struktur aus `docs/build-3ds.md`:** `SD:\3ds\mausjagd\mausjagd.3dsx` und Spieldaten in `SD:\3ds\mausjagd\game\`. Log unter `SD:\3ds\mausjagd\scummvm.log`. Die Schritte unten beschreiben noch das unveränderte Build.
+
+Hardware: New 3DS / New 2DS XL mit Homebrew Launcher. Getestet wird das **unveränderte** Build aus `upstream-base`; die Touch-Anpassungen folgen erst in Phase 5.
+
+1. **SD-Karte:**
+   - `dist\3ds\scummvm.3dsx` nach `SD:\3ds\scummvm\scummvm.3dsx` kopieren. Liegt dort schon ein offizielles ScummVM, dieses vorher umbenennen, z. B. in `scummvm-offiziell.3dsx`.
+   - Den **Inhalt** von `game\` (176 MB) nach `SD:\3ds\scummvm\games\mausjagd\` kopieren.
+   - Für Ton braucht jede Homebrew-App `SD:\3ds\dspfirm.cdc`. Fehlt die Datei, einmal mit "DSP1" erzeugen.
+2. **Starten:** Homebrew Launcher → ScummVM → "Spiel hinzufügen" → `games/mausjagd` wählen. Erwartet wird "The Great Green Mouse Disaster (Windows/German)".
+3. **Notieren:**
+   - Startbildschirm und Titelmusik? Menü? Läuft das Intro-Video flüssig und mit Ton?
+   - Kommt man in einen Raum? Lässt sich eine Maus mit dem Stift fangen?
+   - Ruckeln, Tonaussetzer, Abstürze? An welcher Stelle?
+4. **Log zurück:** `SD:\3ds\scummvm\scummvm.log` nach `dist\3ds-logs\` im Repo kopieren (ignoriert). Der Agent wertet es aus.
+
+Pfade laut `backends/platform/3ds/osystem.cpp`: Konfiguration `sdmc:/3ds/scummvm/scummvm.ini`, Log `sdmc:/3ds/scummvm/scummvm.log`, Spielstände `sdmc:/3ds/scummvm/saves/`. Themes, Engine-Daten und die virtuelle Tastatur liegen in der RomFS der `.3dsx`.
+
 ## Testmatrix
 
 Wird in T3.4 angelegt.

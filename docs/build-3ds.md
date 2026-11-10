@@ -37,8 +37,28 @@ wsl -d Ubuntu -u root ln -s /home/adrian/devkitpro /opt/devkitpro
 ## ScummVM für den 3DS bauen (T4.2/T4.3)
 
 ```bash
-bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh
+bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh                  # Port -> dist/3ds/mausjagd.3dsx
+MAUSJAGD_PORT=0 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh  # normal -> dist/3ds/scummvm.3dsx
 ```
+
+### Eigenständiger Port (`MAUSJAGD_PORT`, Standard)
+
+Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wunsch des Nutzers startet das Spiel direkt, ohne ScummVM-Launcher.
+
+- **Patch** im Fork, Branch `mausjagd`: `3DS: Add standalone Mäusejagd build mode (MAUSJAGD_PORT)`, exportiert nach `patches/0001-…`. Alles steht hinter `#ifdef MAUSJAGD_PORT`; ohne das Define verhält sich der Fork wie normales ScummVM.
+  - `backends/platform/3ds/mausjagd.h`: `MAUSJAGD_APP_DIR` = `sdmc:/3ds/mausjagd/`, `MAUSJAGD_GAME_DIR` = `…/game`, `MAUSJAGD_GAME_ID` = `director:ggmd`
+  - `main.cpp`: Ohne Argumente gestartet, setzt sie `--path=sdmc:/3ds/mausjagd/game director:ggmd`. ScummVM legt dann ein temporäres Target an und erkennt die Variante im Pfad; der Launcher erscheint nicht.
+  - `osystem.cpp`: Konfiguration, Log und Spielstände liegen in `sdmc:/3ds/mausjagd/`. Ein normales ScummVM unter `/3ds/scummvm/` bleibt unberührt.
+  - `engines/dialogs.cpp`: "Zurück zum Launcher" im Spielmenü ist deaktiviert. Beim Beenden geht es zurück zum Homebrew Launcher bzw. HOME-Menü (`gui_return_to_launcher_at_exit` ist standardmäßig aus).
+- **Build:** `CPPFLAGS=-DMAUSJAGD_PORT` an `configure`; Titel "Mäusejagd im Grandhotel" im SMDH über `make APP_TITLE=…`; Build-Ordner `~/build/3ds`. Der normale Build liegt in `~/build/3ds-vanilla`.
+- **SD-Karte:**
+  ```
+  SD:\3ds\mausjagd\mausjagd.3dsx
+  SD:\3ds\mausjagd\game\          <- Inhalt von game\ (MAUSJAGD.EXE, SHARED.DXR, …)
+  SD:\3ds\mausjagd\scummvm.ini    (legt die App selbst an)
+  SD:\3ds\mausjagd\scummvm.log
+  SD:\3ds\mausjagd\saves\
+  ```
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

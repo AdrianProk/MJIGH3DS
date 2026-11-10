@@ -15,7 +15,7 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
    - **Build-Umgebung ist WSL1** (VT-x ist im BIOS aus, siehe `docs/environment.md`). Der Desktop-Build entsteht als Windows-EXE per MinGW-Cross-Compile.
    - `scummvm.exe` stürzt in der Sandbox des Agenten ab. GUI-Tests macht der Nutzer; der Agent liest danach die Logs.
 6. **Freigaben:** Nur nach Rückfrage beim Nutzer: Commit/Push, Fork oder PR auf GitHub, Installation neuer Systemsoftware (WSL2, Docker, devkitPro), Tests auf echter 3DS-Hardware, Entscheidungen an den Gates G1/G2.
-7. **Patches:** Änderungen an ScummVM nur im Branch `mausjagd` in `scummvm/` vornehmen. Nach jeder abgeschlossenen Aufgabe mit Engine-Änderungen die Serie neu exportieren: `git format-patch upstream-base..mausjagd -o ../patches/`.
+7. **Patches:** Änderungen an ScummVM nur im Branch `mausjagd` des Forks vornehmen. Der Fork liegt seit WSL1 unter `~/scummvm` in Ubuntu, nicht mehr in `scummvm/` im Repo. Nach jeder abgeschlossenen Aufgabe mit Engine-Änderungen die Serie neu exportieren: `git -C ~/scummvm format-patch --no-signature upstream-base..mausjagd -o /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/patches/` (vorher alte `*.patch` löschen). Port-spezifischer Code steht hinter `#ifdef MAUSJAGD_PORT`.
 
 ---
 
@@ -166,6 +166,10 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
   *Fertig, wenn:* die Spalte ausgefüllt ist.
 - [ ] **T4.5** Test auf echter Hardware (Freigabe und Hilfe des Nutzers nötig): New 3DS und, falls vorhanden, Old 3DS, per `3dslink` oder als CIA.
   *Fertig, wenn:* die Spalten "New 3DS" und "Old 3DS" in der Matrix ausgefüllt sind.
+  → **Stand 2026-11-10:** Der Nutzer hat einen **New 3DS / New 2DS XL** mit Homebrew Launcher. Getestet wird zuerst die `.3dsx`, Anleitung in `docs/compat-log.md`.
+    - **CIA zurückgestellt:** Der Nutzer wünscht ein CIA. Dafür fehlen `makerom` (3DSGuy/Project_CTR v0.19.0, SHA-256 `287b809d…`) und `bannertool` (carstene1ns/3ds-bannertool 1.2.3, SHA-256 `748519d2…`). Die Sicherheitsprüfung hat Download und Ausführung ohne ausdrückliche Freigabe abgelehnt ("Code from External").
+    - Gebaut wird dann mit `make scummvm.cia` (Regeln in `backends/platform/3ds/3ds.mk`).
+    - Die RSF hat `UniqueId 0xFF321`, dieselbe wie das offizielle ScummVM; eine eigene ID folgt mit der Paketierung.
 
 ## Phase 5: 3DS-Anpassung
 

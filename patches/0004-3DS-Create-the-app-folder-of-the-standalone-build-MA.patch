@@ -1,0 +1,31 @@
+From a485c59020109b1de4ef1486db7b94a64420702b Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 18:29:17 +0100
+Subject: [PATCH 4/4] 3DS: Create the app folder of the standalone build
+ (MAUSJAGD_PORT)
+
+Config, log and saves go to sdmc:/3ds/mausjagd/. Create the folder at
+startup, so they can be written even when the .3dsx was started from
+another location, e.g. directly in an emulator.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index 552e8f16ff..38ec92414b 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -78,6 +78,11 @@ int main(int argc, char *argv[]) {
+ 	static char autoArgGame[] = MAUSJAGD_GAME_ID;
+ 	static Common::String autoArgPath;
+ 	static char *autoArgv[] = { autoArg0, nullptr, autoArgGame, nullptr };
++	// The app folder holds config, log and saves; create it in case the .3dsx
++	// was started from somewhere else (e.g. directly in an emulator)
++	Common::FSNode appDir(Common::Path(MAUSJAGD_APP_DIR, '/'));
++	if (!appDir.exists())
++		appDir.createDirectory();
+ 	if (argc <= 1) {
+ 		const bool embedded = Common::FSNode(Common::Path(MAUSJAGD_ROMFS_GAME_DIR "/" MAUSJAGD_GAME_CHECK_FILE, '/')).exists();
+ 		autoArgPath = Common::String("--path=") + (embedded ? MAUSJAGD_ROMFS_GAME_DIR : MAUSJAGD_GAME_DIR);

@@ -1,0 +1,33 @@
+From 3197d5329aef732084f0f94e3a065610c6faf979 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 18:29:17 +0100
+Subject: [PATCH 3/4] DIRECTOR: Fix crash in destructor when run() exits early
+
+DirectorEngine::run() can return before the stage window is created,
+for example with kAudioDeviceInitFailed when the mixer is not ready
+(3DS without DSP firmware). The destructor then called decRefCount()
+on a null _stage and crashed instead of reporting the error.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/director.cpp | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/engines/director/director.cpp b/engines/director/director.cpp
+index 7857289f15..27773ddd15 100644
+--- a/engines/director/director.cpp
++++ b/engines/director/director.cpp
+@@ -170,8 +170,11 @@ DirectorEngine::~DirectorEngine() {
+ 	for (auto &it : _windowList) {
+ 		it->decRefCount();
+ 	}
+-	_stage->decRefCount();
+-	_stage = nullptr;
++	// run() may return before the stage is created (e.g. no audio device)
++	if (_stage) {
++		_stage->decRefCount();
++		_stage = nullptr;
++	}
+ 	if (_currentWindow) {
+ 		_currentWindow->decRefCount();
+ 		_currentWindow = nullptr;

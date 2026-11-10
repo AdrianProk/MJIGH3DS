@@ -56,10 +56,28 @@ Build: `upstream-base` `7c924b93`, nur die Director-Engine, siehe `docs/build-de
    - Fehlermeldungen oder Abstürze? An welcher Stelle?
 4. ScummVM über "Beenden" schließen (nicht das Fenster abschießen), damit Konfiguration und Log geschrieben werden. Das Log liegt dann im portablen Modus unter `vendor\scummvm-release\scummvm-2026.4.0-win32-x86_64\scummvm.log`, sonst unter `%APPDATA%\ScummVM\Logs\scummvm.log`. Der Agent prüft beide Orte und das Windows-Ereignisprotokoll (Abstürze von `scummvm.exe`).
 
-### 2026-11-10 – Erster Test auf dem New 3DS (unverändertes Build)
+### 2026-11-10 – Port im Emulator Azahar: Absturz beim Start (behoben: Absturz; offen: Ton)
 
-- `scummvm.3dsx` aus `upstream-base` über den Homebrew Launcher auf dem New 3DS / New 2DS XL: **funktioniert**, laut Nutzer.
-- Wunsch des Nutzers: Das Spiel soll direkt starten, ohne ScummVM-Launcher. Umgesetzt mit dem Port-Modus `MAUSJAGD_PORT`, siehe `docs/build-3ds.md`. Die SD-Struktur ist jetzt `SD:\3ds\mausjagd\`.
+- **Symptom:** `mausjagd.3dsx` mit eingebetteten Daten, direkt in Azahar geladen. Es kommt "An exception occurred", "Undefined Instruction" im Thread `mausjagd-main`, `LR = 0x0012F9C8`.
+- **Auflösung** mit `arm-none-eabi-addr2line` auf `~/build/3ds/scummvm.elf`: `Director::DirectorEngine::~DirectorEngine()`, `director.cpp:173`, also `_stage->decRefCount()`.
+- **Ursache:**
+  - `OSystem_3DS::initAudio()` ruft `ndspInit()` auf. Ohne DSP-Firmware `sdmc:/3ds/dspfirm.cdc` schlägt das fehl. Dann startet kein Audio-Thread, und der Mixer bleibt `setReady(false)`.
+  - `DirectorEngine::run()` bricht deshalb sofort mit `kAudioDeviceInitFailed` ab, noch bevor `_stage` angelegt ist.
+  - Der Destruktor dereferenziert dann den Nullzeiger `_stage`. Das ist ein allgemeiner Fehler in ScummVM.
+- **Behoben:** Patch 0003 `DIRECTOR: Fix crash in destructor when run() exits early` (Kandidat für upstream).
+- **Zusätzlich:** Patch 0004 legt `sdmc:/3ds/mausjagd/` beim Start an. In Azahar fehlte der Ordner, deshalb gab es kein Log.
+- **Offen:**
+  - Für Ton braucht die App `dspfirm.cdc` auf der (virtuellen) SD-Karte.
+  - Ohne die Datei startet die Director-Engine nicht; ScummVM zeigt dann nur eine Fehlermeldung. Für den Port ist ein verständlicher Hinweis geplant (T6).
+- **Korrektur zum Test von 17:56:**
+  - Dieser Test lief ebenfalls in Azahar, mit dem unveränderten Build. Laut `%APPDATA%\Azahar\sdmc\3ds\scummvm\scummvm.log` und `scummvm.ini` kam nur der ScummVM-Launcher; es wurde kein Spiel hinzugefügt.
+  - Das Spiel selbst lief auf 3DS bzw. Emulator also noch nie.
+
+### 2026-11-10 – Wünsche des Nutzers zum Port
+
+- Das Spiel soll direkt starten, ohne ScummVM-Launcher. Umgesetzt mit dem Port-Modus `MAUSJAGD_PORT` (Patch 0001), siehe `docs/build-3ds.md`. Die SD-Struktur ist jetzt `SD:\3ds\mausjagd\`.
+- Die Spieldaten sollen in die `.3dsx`. Umgesetzt mit Patch 0002 und `scripts/stage_game_data.py`.
+- Testumgebung: Emulator Azahar (`C:\Program Files\Azahar`, virtuelle SD `%APPDATA%\Azahar\sdmc`), später ein New 3DS / New 2DS XL mit Homebrew Launcher.
 
 ## Anleitung 3DS-Test (T4.5, für den Nutzer)
 

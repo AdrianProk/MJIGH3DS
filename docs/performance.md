@@ -8,6 +8,20 @@ Messwerte zu Startzeit, Bildrate und Speicher. Neueste Einträge oben. Werte aus
 - **Automatischer Lauf im Emulator:** `scripts/azahar-run.ps1` startet Azahar mit der `.3dsx`, wartet auf zwei Log-Marken, nimmt je ein Bild des Azahar-Fensters auf (nach `dist/screens/`) und beendet Azahar wieder. Die ausgegebenen Zeiten sind Wanduhr-Zeiten ab dem Start von Azahar, also einschließlich des Emulatorstarts (etwa 2,5 s).
 - **Desktop zum Vergleich:** eigener Linux-Build ohne Fenster (`docs/build-desktop.md`).
 
+## T4.12 – Bildrate der Missgeschick-Videos (2026-11-10, Azahar 2126.2)
+
+**Verfahren:** Ohne Eingaben über die Diag-Datei direkt ins Video springen: `--debuglevel=2 --debugflags=images --start-movie=ARTIST.DXR@1203` (Label `caught`), Lauf mit `scripts/azahar-run.ps1 -AfterGameSeconds 25`. `artist.mov` hat 12 fps, 640×480, SMC.
+
+| Modus in Azahar | Bildrate im Video | umgerechnete Fläche pro Frame | Umrechnung (flush) | `updateScreen` gesamt |
+|---|---:|---:|---:|---:|
+| New 3DS | 11,4 / 12,3 fps | 307.200 px (Vollbild) | 7,0 ms | 7,6 ms |
+| Old 3DS (`is_new_3ds=false`) | 11,3 / 12,3 fps | 307.200 px | 7,0 ms | 7,6 ms |
+
+- Das Video läuft in **Originalgeschwindigkeit**; B2 ("5 FPS beim Fangen") tritt im Emulator nicht mehr auf (auch laut Nutzer). Die erste 5-s-Zeile (9,1 fps) enthält noch den Raumstart.
+- Das Backend braucht pro Videoframe 7,6 ms von 83 ms; der Rest bleibt für Dekodieren und Engine.
+- **Old 3DS:** Azahar liefert in beiden Modi dieselben Werte, bildet den Taktunterschied (268 MHz statt 804 MHz) also nicht ab. Aussagekräftig ist hier nur echte Hardware.
+- Nebeneffekt der Methode: Ohne `startsequence` fehlen Variablen, nach dem Video bricht ein fataler Fehler (`Builtin 'getPos' did not return value`) ab und öffnet die Debugger-Konsole. Im normalen Spiel tritt das nicht auf.
+
 ## T4.8 – Startzeit (2026-11-10, Azahar 2126.2)
 
 **Ziel** laut PLAN.md §3: Startbildschirm des Spiels nach höchstens 10 s.

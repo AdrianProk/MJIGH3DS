@@ -212,12 +212,13 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - **Offen:** Messung auf dem New 3DS (T4.5).
 - [x] **T4.13** Ladeanzeige beim Start (Wunsch des Nutzers: "Phasen-Balken").
   → **Erledigt** (2026-11-10, Patch 0008): Oben erscheinen Titel und Balken mit Statuszeile ("Spieldaten werden geprüft ...", "Spiel wird gestartet ..."), bis das Spiel sein erstes Bild zeigt; Design ohne Spielgrafik. Dazu lässt Patch 0009 den oberen Bildschirm im normalen 400×240-Modus, weil Azahar den 800-Pixel-Modus nur halb zeigt. Im Emulator per Bild geprüft.
-- [ ] **T4.9** **B3:** Figuren beim Betreten eines Raums weiß, bis die Raummusik endet.
+- [x] **T4.9** **B3:** Figuren beim Betreten eines Raums weiß, bis die Raummusik endet.
   - Raum bestimmen (T4.6).
   - Lingo des Raums lesen (`analysis/lingo/<RAUM>/`): Raumstart, `puppetSound`/`soundBusy`-Schleifen, `puppetPalette`, Ink und `updateStage`.
   - Klären, ob das Original die Figuren erst nach der Musik zeigt; dann wäre der Befund das Weiß statt "unsichtbar".
   - Ursache in Palette, Ink-Rendering (Matte/Copy/Background Transparent) oder Zeichenreihenfolge finden.
   *Fertig, wenn:* die Figuren so erscheinen, wie es die Lingo-Logik und der Desktop-Vergleich vorgeben, in allen Räumen mit gleichem Aufbau.
+  → **Erledigt als Originalverhalten** (2026-11-10, Entscheidung des Nutzers): Jeder Fangraum ruft im `exitFrame` von Frame 1 `startsequence` auf. Die Funktion wartet mit `repeat while the soundBusy of 1` ohne `updateStage`, bis die Raummusik endet; Frame 1 steht also absichtlich still. Der Desktop-Vergleich entfällt.
 - [ ] **T4.10** **B4:** Rechteck um den Tippunkt.
   - Mit dem Desktop-Vergleich und dem Code klären, woher es kommt:
     - (a) Zeiger-Bitmap (`cursor(200)` u. a., Director-Cursor mit Maske) im 3DS-Backend ohne Transparenz
@@ -225,17 +226,26 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - (c) Touch-Feedback des Backends
   - Bezug zu PLAN.md §3: Der Cursor wird auf dem Touchscreen ohnehin ausgeblendet (T5.1/T5.2). Lösen sollen das Problem aber nicht nur die Ausblendung, sondern die Ursache, weil der Cursor in der Lupe sichtbar bleibt.
   *Fertig, wenn:* beim Tippen kein Rechteck mehr erscheint, vom Spiel vorgesehene Hervorhebungen erhalten bleiben und der Cursor (wo sichtbar) korrekt mit Transparenz gezeichnet wird.
-- [ ] **T4.11** **B1:** Verzerrtes Bild beim bzw. nach dem Fangen einer Maus.
+- [x] **T4.11** **B1:** Verzerrtes Bild beim bzw. nach dem Fangen einer Maus.
   - Bestätigen, dass es um das Missgeschick-Video (`<RAUM>.MOV`) geht.
   - Abmessungen, Codec (SMC), Farbtiefe und Palette des Videos bestimmen, z. B. mit `tools/` oder ScummVM-Debugausgaben.
   - Den Datenweg prüfen: Videoframe → Director-Sprite → Bühne (CLUT8) → 3DS-Backend (`copyRectToScreen`, Pitch, `initSize`/Größenwechsel, Skalierung 640×480 → Bildschirm). Screenshot im Emulator; Desktop-Vergleich.
   *Fertig, wenn:* die Missgeschick-Videos der 19 Fangräume unverzerrt laufen, stichprobenartig im Emulator und vollständig per Desktop-Vergleich. Intro- und Hilfevideos werden mitgeprüft.
+  → **Erledigt** (2026-11-10):
+    - Laut Nutzer tritt B1 nicht mehr auf. Die Stichprobe im Emulator (ARTIST, Bild mitten im Video) ist auf beiden Bildschirmen unverzerrt; das Intro lief schon im ersten Lauf sauber.
+    - Alle Raumvideos haben das Format des Intros (`tools/mov_info.py`).
+    - Die Ursache ist nicht abschließend geklärt. Kandidat ist der 800-Pixel-Modus des oberen Bildschirms, den Azahar nur halb zeigte (seit Patch 0009 aus).
+    - Der vollständige Desktop-Vergleich entfällt nach Rückmeldung des Nutzers. Tritt B1 wieder auf, mit Raumname und Bild neu öffnen.
 - [ ] **T4.12** **B2:** Einbruch auf 5 FPS beim Fangen.
   - Zeitmessung im 3DS-Build: Dekodieren, Palettenumrechnung bzw. Dithering (`setDitheringPalette`), Kopieren auf die Bühne, Skalierung bzw. Übertragung zur GPU.
   - Erst nach T4.11 bewerten, weil die Verzerrung die Ursache sein kann (z. B. falsche Größe → falscher Pfad).
   - Kandidaten: Dithering-Tabellen einmal pro Video statt pro Frame aufbauen, die Videopalette direkt übernehmen, nur geänderte Bereiche aktualisieren (Dirty Rects).
   - Ergebnisse in `docs/performance.md`. Allgemeine Optimierung für beide Modelle folgt in T5.7.
   *Fertig, wenn:* Missgeschick-Videos im Emulator (New-3DS-Modus) in ihrer Original-Bildrate laufen und der Wert auf dem Old 3DS gemessen und eingetragen ist.
+  → **Im Emulator erfüllt** (2026-11-10):
+    - ARTIST-Video mit 11,4–12,3 fps (Original 12 fps); das Backend braucht 7,6 ms pro Frame. Laut Nutzer ist B2 behoben.
+    - Gemessen ohne Eingaben über `diag.txt` mit `--start-movie=ARTIST.DXR@1203`; Werte in `docs/performance.md`.
+    - **Offen:** Old 3DS auf echter Hardware. Der Old-3DS-Modus von Azahar liefert dieselben Werte wie der New-3DS-Modus und taugt dafür nicht.
 
 ## Phase 5: 3DS-Anpassung
 
@@ -254,6 +264,7 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
 - [ ] **T5.7** Optimieren, nur wenn T5.5 oder T5.6 Probleme zeigen: Profiling zuerst, dann gezielt. Kandidaten: SMC-Decoder, Palettenkonvertierung, Dirty Rects, Musikvariante mit 8 Bit, Takt des New 3DS. Jede Optimierung mit Vorher/Nachher-Messwert in `docs/performance.md`.
   *Fertig, wenn:* die Messwerte auf **beiden** Modellen das Ziel erreichen: flüssige Räume, Videos ohne störendes Ruckeln, kein Ton-Stottern. Modellabhängige Einstellungen nur, wenn die Messung sie verlangt (Erkennung per `APT_CheckNew3DS()`).
 - [ ] **T5.8** Systemverhalten: HOME-Taste, Deckel zu/auf (Sleep), Power-Taste und Beenden über das ScummVM-Menü dürfen weder Ton noch Spielstand kaputt machen.
+  - **Merkposten** (2026-11-10): Ein fataler Fehler öffnet auf dem 3DS die Debugger-Konsole von ScummVM, eine Sackgasse ohne Tastatur. Prüfen, was der Spieler dann sieht und wie er beendet; gegebenenfalls im Port eine Meldung zeigen und sauber beenden.
   *Fertig, wenn:* alle Fälle in `docs/3ds-ux.md` als "ok" vermerkt sind.
 - [ ] **G2 Gate:** Dem Nutzer den Stand berichten: Lassen sich die Mäuse per Touch zuverlässig fangen (T5.4)? Ist das Spiel auf dem New 3DS **und** dem Old 3DS gut spielbar? Freigabe für das Packaging einholen.
 

@@ -211,9 +211,11 @@ MJIGH3DS/
 **Stand 2026-11-10, abends:**
 - **B5** ist behoben (Patch 0006, Kaltstart ohne Dialog).
 - **B6** ist im Emulator behoben: Die Erkennung prüfte alle Einträge der Director-Tabelle (75 s). Patch 0007 beschränkt sie auf `ggmd`; das erste Spielbild kommt jetzt nach 4,1 s. Die Messung auf dem New 3DS steht aus.
-- **B1** tritt laut Nutzer nicht mehr auf. Nebenbefund: Azahar zeigt den 800-Pixel-Modus des oberen Bildschirms nur halb; Patch 0009 nutzt im Port den normalen Modus.
+- **B1** tritt laut Nutzer nicht mehr auf; die Stichprobe ARTIST ist unverzerrt. Nebenbefund: Azahar zeigt den 800-Pixel-Modus des oberen Bildschirms nur halb; Patch 0009 nutzt im Port den normalen Modus.
+- **B2** ist im Emulator behoben: Das Missgeschick-Video läuft mit 12 fps wie im Original. Der Wert für den Old 3DS braucht echte Hardware, weil Azahar den Taktunterschied nicht abbildet.
+- **B3** ist Originalverhalten (Entscheidung des Nutzers): `startsequence` wartet ohne `updateStage`, bis die Raummusik endet.
 - **Neu** auf Wunsch des Nutzers: Startbildschirm mit Phasen-Balken (Patch 0008, T4.13).
-- **Offen:** B2, B3 und B4.
+- **Offen:** B4 (Rechteck beim Tippen).
 
 **Vorgehen:**
 1. **Erst einordnen, dann beheben (T4.6).** Jeder Befund wird am Desktop gegengeprüft: im offiziellen ScummVM für Windows (Nutzer) und im eigenen Linux-Build ohne Fenster (Agent). Tritt er auch dort auf, liegt der Fehler in der Director-Engine; sonst im 3DS-Backend oder an der Rechenleistung. Für die 3DS-Läufe kommt Diagnose-Logging dazu: Filmwechsel und Zeitstempel ins Log.

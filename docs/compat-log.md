@@ -4,6 +4,17 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-10 – B1, B2, B3 eingeordnet
+
+- **Rückmeldung des Nutzers:** "die weißen Figuren sind wohl vom Spiel so" (B3), "die FPS hat sich auch schon gefixt" (B2).
+- **B3, Lingo bestätigt den Ablauf:**
+  - Jeder Fangraum ruft im `exitFrame` von Frame 1 `startsequence` auf (z. B. ARTIST, ScoreScript 1). Die Funktion wartet in `repeat while the soundBusy of 1` ohne `updateStage`, bis die Raummusik endet.
+  - Bis dahin steht also absichtlich Frame 1 still; erst danach läuft der Raum weiter.
+  - Eingeordnet als **Originalverhalten** (Entscheidung des Nutzers). Ein Desktop-Vergleich ist nicht mehr nötig.
+- **B2 gemessen:** Das Missgeschick-Video von ARTIST läuft in Azahar mit 11,4–12,3 fps bei 12 fps im Original. Details in `docs/performance.md`. Der Old-3DS-Modus von Azahar liefert dieselben Werte und ist deshalb nicht aussagekräftig.
+- **B1 Stichprobe:** Bild mitten im ARTIST-Video auf beiden Bildschirmen unverzerrt (Patches 0001–0009).
+- **Nebenbefund:** Ein fataler Lingo-Fehler öffnet auf dem 3DS die Debugger-Konsole von ScummVM. Das ist im normalen Spiel bisher nicht aufgetreten, wäre für Spieler aber eine Sackgasse; Merkposten für T5.8.
+
 ### 2026-11-10 – Startzeit, Startbildschirm, Kaltstart (Agent, Azahar selbst gestartet)
 
 - **Build:** `mausjagd.3dsx`, Fork `2022c2c09f`, Patches 0001–0009. Azahar startet der Agent seit heute selbst über `scripts/azahar-run.ps1` (Freigabe des Nutzers).

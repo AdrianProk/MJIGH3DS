@@ -189,11 +189,16 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
   - **Desktop-Vergleich (Nutzer):** dieselben Szenen im offiziellen ScummVM 2026.4.0 für Windows (`vendor/scummvm-release/…`): Raum betreten, warten, antippen bzw. klicken, eine Maus fangen. Notieren, ob B1, B3 und B4 auch dort auftreten.
   - **Desktop-Vergleich (Agent):** den betroffenen Raum im eigenen Linux-Build ohne Fenster starten (Target `ggmd-win-de`, Startfilm per `--start-movie=<RAUM>.DXR`) und mit den Debug-Kanälen `loading`, `images`, `events`, `sound` und `lingoexec` die Abläufe aus B1 und B3 nachvollziehen. Fehlende Eingaben ersetzen (z. B. `caught()` über die Lingo-Konsole des Debuggers aufrufen oder per ScummVM-Event-Recorder).
   *Fertig, wenn:* in `docs/compat-log.md` für B1–B6 jeweils "Desktop: ja/nein" und damit "Engine" oder "3DS-Backend/Leistung" steht und die betroffenen Räume bzw. Videos benannt sind.
+  → **Zwischenstand** (2026-11-10, Agent):
+    - **Diagnose-Build** fertig: Patch 0005, `DIAG=1` erzeugt `dist/3ds/mausjagd-diag.3dsx`. Abweichend vom Plan ist der Modus ein Laufzeitschalter (`diag.txt` in der RomFS oder auf der SD-Karte), kein eigenes Binary; so lässt er sich auf echter Hardware ohne Neubau einschalten. Er liefert Zeitstempel ab App-Start, Startmarken und alle 5 s Bildrate und Umrechnungszeiten (`docs/build-3ds.md`).
+    - **Desktop-Vergleich (Agent):** B5 tritt auch am Desktop auf, B2 und B6 nicht; Details in `docs/compat-log.md`. Neues Werkzeug `tools/mov_info.py`: Alle Raumvideos haben das Format des Intros, also scheidet das Videoformat als Ursache für B1 aus.
+    - **Offen:** Diag-Lauf im Emulator und Desktop-Vergleich durch den Nutzer (B1, B3, B4, Raumname); Anleitung in `docs/compat-log.md`.
 - [ ] **T4.7** **B5:** ScummVM-Warnung beim Start entfernen.
   - Ursache: `ADGF_UNSTABLE` aller Director-Einträge führt zu `Engine::warnUserAboutUnsupportedGame()`.
   - Im Port-Modus `enable_unsupported_game_warning` standardmäßig auf `false` setzen, als 3DS-Patch hinter `#ifdef MAUSJAGD_PORT`. Den Erkennungseintrag nicht ändern.
   - Danach prüfen, ob beim Kaltstart (leerer App-Ordner) weitere Dialoge oder Hinweise erscheinen, und auch diese abschalten.
   *Fertig, wenn:* ein Kaltstart im Emulator ohne jeden ScummVM-Dialog direkt im Startbildschirm des Spiels landet.
+  → **Umgesetzt** (2026-11-10): Patch 0006 setzt im Port `enable_unsupported_game_warning` standardmäßig auf `false` (in `OSystem_3DS::initBackend()`). In beiden `.3dsx` enthalten. **Offen:** Kaltstart-Test im Emulator (Teil A der Anleitung in `docs/compat-log.md`).
 - [ ] **T4.8** **B6:** Startzeit messen und verkürzen.
   - Mit den Zeitstempeln aus T4.6 die Phasen messen: Laden der `.3dsx`, Backend-Init, Erkennung (durchsucht die RomFS mit 442 Dateien, Scan-Tiefe 5, MD5), Engine-Init, `SHARED.DXR`, erster Frame.
   - Kandidaten: Erkennung im Port verkürzen (z. B. mit vorkonfiguriertem Target bzw. Variante, oder nur `MAUSJAGD.EXE`/`SHARED.DXR` prüfen), RomFS-Zugriffe bündeln.

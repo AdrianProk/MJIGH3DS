@@ -4,6 +4,31 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-10 – T4.6 Testhilfen und erste Einordnung B1–B6 (Agent)
+
+- **Diagnose-Build:** `DIAG=1 bash scripts/build-3ds.sh` erzeugt `dist/3ds/mausjagd-diag.3dsx`, Fork `215225f512`, Patches 0001–0006. Bedienung und Log-Format stehen in `docs/build-3ds.md` (Diagnosemodus). Die normale `dist/3ds/mausjagd.3dsx` hat denselben Stand, nur ohne `diag.txt`.
+- **B5 behoben im Code** (Patch 0006, T4.7), Test im Emulator steht aus.
+- **Videos** (`py -I tools/mov_info.py game/*.MOV game/GERHELP/*.MOV game/GERVIDEO/*.MOV`):
+  - Alle 19 Missgeschick-Videos haben **dasselbe Format wie das Intro** `GERINTRO.MOV`, das auf dem 3DS sauber lief: 640×480, `smc`, 8 Bit, Farbtabelle in der Datei, Ton `raw` 22050 Hz 8 Bit mono.
+  - Bildraten: meist 12 fps, sonst 8 fps (BATHROOM, EXERCISE, FARMER, PLAYROOM, PLUMBER, WITCH), 9 fps (PRESBED), 5,7 fps (LIBRARY) und 4,8 fps (SNOOKER).
+  - `ENDSEQ.MOV` hat 640×400 bei 8 fps; die Hilfevideos `GERHELP/*` haben 320×200 bei 12 fps mit Ton `twos` 16 Bit.
+  - Die Cast-Member sind in ARTIST (`artist.mov`) und im Menü (`introvideo`) gleich: Rechteck 640×480, `directToStage=1`, `crop=0`, `center=0`, Flags `0xa00042a`.
+  - **Folgerung:** Das Videoformat als Ursache für B1 ist ausgeschlossen. Infrage kommen die Einbindung im Raum (Sprite-Rechteck, Ink, gleichzeitig laufende Score-Sprites, Palette des Raums) oder der Zustand nach `caught()` (Zeiger, Puppet-Sprites).
+- **Desktop ohne Fenster** (eigener Linux-Build, Startwarnung in der Test-INI abgeschaltet):
+  - Start bis `Running …` etwa 1 s, inklusive Erkennung.
+  - `--start-movie=ARTIST.DXR@1203` (Label `caught`): `artist.mov` läuft von `STARTING VIDEO` bis `STOPPING VIDEO` in 15 s, also in Echtzeit (Länge 14,8 s), ohne Warnungen. Danach folgt der Raumabschluss mit `b_getPos: list arg should be of type ARRAY` (Folge des Direkteinstiegs ohne `startsequence`).
+  - Ohne Fenster lässt sich das **Bild** nicht prüfen; das übernimmt der Desktop-Vergleich des Nutzers.
+- **Einordnung (Stand Agent):**
+
+  | ID | Desktop | Einordnung | Betroffen | Nächster Schritt |
+  |---|---|---|---|---|
+  | B1 | Bild offen (Nutzer); Ablauf und Tempo am Desktop unauffällig | offen | Raum aus dem ersten Lauf unbekannt; alle 19 Raumvideos | Desktop-Vergleich, Diag-Lauf mit Raumname |
+  | B2 | nein: Echtzeit am Desktop | 3DS-Leistung | jedes Missgeschick-Video | Diag-Lauf: fps, *converted*, *flush*, *update* |
+  | B3 | offen (Nutzer) | offen | Raum unbekannt | Desktop-Vergleich |
+  | B4 | offen (Nutzer) | offen; Kandidat: Hilite-Invertierung (`Window::renderChannel` → `invertChannel`) | alle Räume? | Desktop-Vergleich |
+  | B5 | ja: auch am Desktop (40 s Wartezeit ohne Fenster) | allgemeines ScummVM-Verhalten (`ADGF_UNSTABLE`), kein Engine-Fehler | jeder Start | im Port abgeschaltet (Patch 0006) |
+  | B6 | nein: etwa 1 s bis `Running` am Desktop | 3DS-Backend/Leistung, Anteil des Dialogs aus B5 unbekannt | Start | Diag-Lauf: Startphasen messen |
+
 ### 2026-11-10 – Erster spielbarer Lauf im Emulator Azahar
 
 - **Build:** `mausjagd.3dsx`, Fork `a485c59020` (Patches 0001–0004), Spieldaten in der RomFS. Auf der virtuellen SD liegt `dspfirm.cdc`.
@@ -60,7 +85,24 @@ Build: `upstream-base` `7c924b93`, nur die Director-Engine, siehe `docs/build-de
 - **Stand 2026-11-10:** Laut Windows-Ereignisprotokoll gab es nach den Agenten-Tests (19:01–19:02) keinen weiteren Start von `scummvm.exe`. Der Spieltest steht noch aus.
 - **Status:** Erkennung ok (Fallback), Spieltest offen.
 
-## Anleitung Spieltest (für den Nutzer)
+## Anleitung Diagnose-Lauf und Desktop-Vergleich (T4.6, für den Nutzer)
+
+**A. Emulator Azahar mit `dist\3ds\mausjagd-diag.3dsx`**
+
+1. **Kaltstart vorbereiten:** Den Ordner `%APPDATA%\Azahar\sdmc\3ds\mausjagd` in `mausjagd-alt` umbenennen (das alte Log bleibt so erhalten). `dspfirm.cdc` bleibt, wo es ist.
+2. In Azahar prüfen und notieren, ob unter Einstellungen → System der **New-3DS-Modus** an ist.
+3. `mausjagd-diag.3dsx` starten und mit der Stoppuhr messen, wie lange es bis zum **Startbildschirm des Spiels** dauert. Erscheint irgendein ScummVM-Dialog? (Erwartet: keiner.)
+4. Menü → einen Raum wählen. **Den Namen des Raums notieren.**
+5. Im Raum: bis zum Ende der Raummusik warten (B3: Sind die Figuren weiß?), irgendwo hintippen (B4: Rechteck?), dann eine Maus aufscheuchen und **fangen** (B1, B2). Das Missgeschick-Video bis zum Ende laufen lassen und die App-FPS von Azahar ablesen.
+6. Zurück zur Hotelübersicht, dann über das Hotel-Symbol oder Esc beenden.
+7. Dem Agenten Bescheid geben. Er liest `%APPDATA%\Azahar\sdmc\3ds\mausjagd\scummvm.log` selbst; Screenshots von B1, B3 und B4 bitte dazulegen.
+
+**B. Desktop-Vergleich mit dem offiziellen ScummVM 2026.4.0**
+
+1. `vendor\scummvm-release\scummvm-2026.4.0-win32-x86_64\scummvm.exe` starten. Ist das Spiel noch nicht eingetragen, wie unten unter "Anleitung Spieltest" hinzufügen.
+2. **Denselben Raum** wie in A wählen und dieselben Schritte machen: Raum betreten und auf die Musik warten, hinklicken, eine Maus fangen, das Video ansehen.
+3. Für B1, B3 und B4 jeweils notieren: **tritt auch hier auf ja/nein**, bei "ja" mit Screenshot.
+
 
 1. `vendor\scummvm-release\scummvm-2026.4.0-win32-x86_64\scummvm.exe` per Doppelklick starten.
 2. **Spiel hinzufügen…** und den Ordner `C:\Users\Alphe\Documents\GitHub\MJIGH3DS\game` wählen. ScummVM sollte "The Great Green Mouse Disaster (Windows/Deutsch)" erkennen. Meldet es stattdessen eine unbekannte Variante, trotzdem hinzufügen und dem Agenten Bescheid geben.

@@ -2,6 +2,7 @@
 # Baut ScummVM mit nur der Director-Engine für den 3DS (WSL1/Ubuntu), siehe docs/build-3ds.md.
 #
 #   bash scripts/build-3ds.sh                  -> dist/3ds/mausjagd.3dsx (eigenständiger Port)
+#   DIAG=1 bash scripts/build-3ds.sh           -> dist/3ds/mausjagd-diag.3dsx (Port mit Diagnosemodus)
 #   MAUSJAGD_PORT=0 bash scripts/build-3ds.sh  -> dist/3ds/scummvm.3dsx  (normales ScummVM mit Launcher)
 #
 # Umgebungsvariablen (optional):
@@ -13,6 +14,10 @@
 #   EXTRA_CONFIGURE  zusätzliche configure-Optionen
 #   EMBED_GAME    nur Port: 1 = Spieldaten in die RomFS der .3dsx (Standard), 0 = Daten auf der SD-Karte
 #   GAME_DIR      Spielordner, Standard <repo>/game
+#   DIAG          nur Port: 1 = Diagnosemodus, legt diag.txt in die RomFS; Ausgabe dist/3ds/mausjagd-diag.3dsx.
+#                 Gleiches Binary wie ohne DIAG. Ohne Neubau geht es auch mit sdmc:/3ds/mausjagd/diag.txt.
+#   DIAG_ARGS     Startoptionen für den Diagnosemodus, Standard leer = Vorgabe im Code
+#                 (MAUSJAGD_DIAG_DEFAULT_ARGS: --debuglevel=1 --debugflags=loading)
 #
 # Achtung: Mit EMBED_GAME=1 enthält die .3dsx das Spiel. Nur für den eigenen Gebrauch,
 # nicht weitergeben (dist/ ist ignoriert).
@@ -38,6 +43,12 @@ else
   APP_VARS=()
 fi
 
+DIAG="${DIAG:-0}"
+if [ "$DIAG" = 1 ]; then
+  [ "$PORT" = 1 ] || { echo "DIAG=1 gibt es nur für den Port-Build" >&2; exit 1; }
+  OUT=mausjagd-diag.3dsx
+fi
+
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 export DEVKITARM="$DEVKITPRO/devkitARM"
 export CTRULIB="$DEVKITPRO/libctru"
@@ -60,20 +71,34 @@ if [ "${RECONFIGURE:-0}" = 1 ] || [ ! -f config.mk ]; then
 fi
 make -j"$JOBS"
 
-ROMFS_VARS=()
+ROMFS_EXTRA=()
+EMBEDDED=0
 if [ "$PORT" = 1 ] && [ "${EMBED_GAME:-1}" = 1 ]; then
   GAME_DIR="${GAME_DIR:-$REPO/game}"
   STAGE="$BUILD/romfs-extra/game"
   echo "=== Spieldaten laut docs/inventory.md nach $STAGE (geprüft)"
   python3 -I "$REPO/scripts/stage_game_data.py" "$GAME_DIR" "$REPO/docs/inventory.md" "$STAGE"
-  ROMFS_VARS=(DIST_3DS_EXTRA_FILES="$STAGE")
+  ROMFS_EXTRA+=("$STAGE")
+  EMBEDDED=1
+fi
+if [ "$DIAG" = 1 ]; then
+  # Diagnosemodus, siehe backends/platform/3ds/mausjagd.h im Fork
+  DIAG_FILE="$BUILD/romfs-extra/diag.txt"
+  mkdir -p "$(dirname "$DIAG_FILE")"
+  printf '# Diagnosemodus (scripts/build-3ds.sh DIAG=1), leer = Vorgabe im Code\n%s\n' "${DIAG_ARGS:-}" > "$DIAG_FILE"
+  ROMFS_EXTRA+=("$DIAG_FILE")
+  echo "=== Diagnosemodus: Optionen '${DIAG_ARGS:-<Vorgabe>}'"
+fi
+ROMFS_VARS=()
+if [ ${#ROMFS_EXTRA[@]} -gt 0 ]; then
+  ROMFS_VARS=(DIST_3DS_EXTRA_FILES="${ROMFS_EXTRA[*]}")
 fi
 
 # RomFS und SMDH immer neu erzeugen: make sieht Änderungen in Unterordnern bzw. an
 # Titel/Beschreibung sonst nicht
 rm -rf romfs scummvm.smdh scummvm.3dsx
 make scummvm.3dsx "${APP_VARS[@]}" "${ROMFS_VARS[@]}"
-if [ ${#ROMFS_VARS[@]} -gt 0 ]; then
+if [ "$EMBEDDED" = 1 ]; then
   echo "RomFS-Spieldaten: $(find romfs/game -type f | wc -l) Dateien, $(du -sh romfs/game | cut -f1)"
 fi
 

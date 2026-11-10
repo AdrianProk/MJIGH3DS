@@ -38,6 +38,7 @@ wsl -d Ubuntu -u root ln -s /home/adrian/devkitpro /opt/devkitpro
 
 ```bash
 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh                  # Port -> dist/3ds/mausjagd.3dsx
+DIAG=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh           # Port mit Diagnosemodus -> dist/3ds/mausjagd-diag.3dsx
 MAUSJAGD_PORT=0 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh  # normal -> dist/3ds/scummvm.3dsx
 ```
 
@@ -66,6 +67,16 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
   SD:\3ds\mausjagd\saves\
   ```
   Ohne eingebettete Daten (`EMBED_GAME=0`) kommt der Inhalt von `game\` nach `SD:\3ds\mausjagd\game\`.
+- **Keine Startwarnung (Patch 0006, T4.7):** Alle Director-Einträge sind in ScummVM `ADGF_UNSTABLE`. Deshalb fragt `AdvancedMetaEngineBase::createInstance()` vor jedem Start "Start anyway / Cancel". Im Port steht `enable_unsupported_game_warning` standardmäßig auf `false` (`OSystem_3DS::initBackend()`); in `scummvm.ini` lässt es sich wieder einschalten. Der Erkennungseintrag bleibt unverändert.
+- **Diagnosemodus (Patch 0005, T4.6):**
+  - **An:** wenn `diag.txt` in `sdmc:/3ds/mausjagd/` oder in der RomFS liegt; die Datei auf der SD-Karte hat Vorrang. `DIAG=1` legt sie in die RomFS und nennt die Ausgabe `mausjagd-diag.3dsx`. Das Binary ist dasselbe wie ohne `DIAG`, nur die RomFS unterscheidet sich.
+  - **Ohne Neubau** (z. B. auf echter Hardware) reicht eine Datei `SD:\3ds\mausjagd\diag.txt`, auch eine leere.
+  - **Inhalt:** zusätzliche Startoptionen, getrennt durch Leerzeichen oder Zeilen; `#` leitet einen Kommentar ein. Ist die Datei leer, gilt `--debuglevel=1 --debugflags=loading` (`MAUSJAGD_DIAG_DEFAULT_ARGS`). Beim Bauen lassen sie sich mit `DIAG_ARGS="…"` setzen. Die Optionen greifen nur beim Direktstart ohne Argumente.
+  - **Im Log:**
+    - Jede Zeile beginnt nach dem Datum mit `[+s.mmm]`, der Zeit seit App-Start.
+    - Marken: `diag: backend ready …`, `CPU extensions:` (danach läuft die Erkennung), `Running …` (Erkennung fertig), `Starting v404 Director game` (Engine), `3ds initsize`, `diag: first frame at WxH, N ms after the resolution change`.
+    - Alle 5 s eine Zeile `diag: N frames in T ms (F fps), converted avg P px/frame, flush avg/max …, update avg/max …`. Dabei ist *converted* die Fläche, die das Backend pro Frame von CLUT8 in die GPU-Textur umrechnet, *flush* die Zeit dafür und *update* die Dauer von `updateScreen()` einschließlich GPU-Übergabe. Die restliche Zeit eines Frames verbraucht die Engine (Lingo, Dekodieren, Zeichnen).
+  - Code: `backends/platform/3ds/mausjagd.cpp`; Anbindung in `main.cpp`, `osystem.cpp` (`logMessage`, `initBackend`) und `osystem-graphics.cpp` (`initSize`, `updateScreen`).
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

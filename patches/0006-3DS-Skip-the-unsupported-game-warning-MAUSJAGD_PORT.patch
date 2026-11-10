@@ -1,0 +1,32 @@
+From 215225f51276b27943d4beadb195853b2bf39e11 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 20:03:13 +0100
+Subject: [PATCH 6/6] 3DS: Skip the unsupported game warning (MAUSJAGD_PORT)
+
+All Director games are marked unstable in the detection tables, so
+ScummVM asks before every start whether to run the game anyway. The
+standalone build starts the game directly, so this dialog is turned
+off by default. It can still be enabled in scummvm.ini.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/osystem.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index b2d2bd2bcb..91e0cccb6a 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -150,6 +150,12 @@ void OSystem_3DS::initBackend() {
+ 	ConfMan.registerDefault("fullscreen", true);
+ 	ConfMan.registerDefault("aspect_ratio", true);
+ 	ConfMan.registerDefault("filtering", true);
++#ifdef MAUSJAGD_PORT
++	// Standalone game build: start the game without asking. The detection
++	// marks all Director games as unstable, which would show a warning
++	// dialog at every start. It can still be enabled in scummvm.ini.
++	ConfMan.registerDefault("enable_unsupported_game_warning", false);
++#endif
+ 	if (!ConfMan.hasKey("vkeybd_pack_name")) {
+ 		ConfMan.set("vkeybd_pack_name", "vkeybd_small");
+ 	}

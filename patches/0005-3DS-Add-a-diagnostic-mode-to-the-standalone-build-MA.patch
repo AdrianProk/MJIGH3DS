@@ -1,0 +1,455 @@
+From f53e4857ee4db95b9c21030a570bb09149c1ff66 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 20:03:03 +0100
+Subject: [PATCH 5/6] 3DS: Add a diagnostic mode to the standalone build
+ (MAUSJAGD_PORT)
+
+The diagnostic mode helps to analyze startup time and frame rate on
+the emulator and on real hardware. It is on when diag.txt exists in
+sdmc:/3ds/mausjagd/ or in the RomFS root. The file holds extra command
+line options for the game start, e.g. debug channels; without options,
+"--debuglevel=1 --debugflags=loading" is used.
+
+In diagnostic mode:
+- every log line carries the time since app start
+- the backend logs when it is ready and the first frame after each
+  change of the game resolution
+- every 5 seconds, the backend logs frame rate, area converted for the
+  GPU, and time spent converting and in the whole screen update
+
+Without diag.txt, nothing changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp             |  27 ++-
+ backends/platform/3ds/mausjagd.cpp         | 181 +++++++++++++++++++++
+ backends/platform/3ds/mausjagd.h           |  49 ++++++
+ backends/platform/3ds/module.mk            |   1 +
+ backends/platform/3ds/osystem-graphics.cpp |  27 +++
+ backends/platform/3ds/osystem.cpp          |  24 ++-
+ 6 files changed, 300 insertions(+), 9 deletions(-)
+ create mode 100644 backends/platform/3ds/mausjagd.cpp
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index 38ec92414b..df87586a0a 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -41,6 +41,11 @@ u32 __stacksize__ = 64 * 1024;
+ // We do this in backends/platform/3ds/allocHeapsOverride.cpp
+ 
+ int main(int argc, char *argv[]) {
++#ifdef MAUSJAGD_PORT
++	// Reference point for the timestamps of the diagnostic mode
++	Mausjagd::markAppStart();
++#endif
++
+ 	// Initialize basic libctru stuff
+ 	cfguInit();
+ 	gfxInitDefault();
+@@ -74,21 +79,27 @@ int main(int argc, char *argv[]) {
+ 	// run the game directly instead of showing the launcher. The game data is taken
+ 	// from the RomFS if it was embedded there, otherwise from the folder on the SD card.
+ 	// ScummVM creates a temporary target for the game ID and detects the variant in --path.
+-	static char autoArg0[] = "mausjagd";
+-	static char autoArgGame[] = MAUSJAGD_GAME_ID;
+-	static Common::String autoArgPath;
+-	static char *autoArgv[] = { autoArg0, nullptr, autoArgGame, nullptr };
++	static Common::StringArray autoArgs;
++	static Common::Array<char *> autoArgv;
+ 	// The app folder holds config, log and saves; create it in case the .3dsx
+ 	// was started from somewhere else (e.g. directly in an emulator)
+ 	Common::FSNode appDir(Common::Path(MAUSJAGD_APP_DIR, '/'));
+ 	if (!appDir.exists())
+ 		appDir.createDirectory();
++	// Diagnostic mode, see mausjagd.h
++	Mausjagd::initDiag();
+ 	if (argc <= 1) {
+ 		const bool embedded = Common::FSNode(Common::Path(MAUSJAGD_ROMFS_GAME_DIR "/" MAUSJAGD_GAME_CHECK_FILE, '/')).exists();
+-		autoArgPath = Common::String("--path=") + (embedded ? MAUSJAGD_ROMFS_GAME_DIR : MAUSJAGD_GAME_DIR);
+-		autoArgv[1] = const_cast<char *>(autoArgPath.c_str());
+-		argc = 3;
+-		argv = autoArgv;
++		autoArgs.push_back("mausjagd");
++		autoArgs.push_back(Common::String("--path=") + (embedded ? MAUSJAGD_ROMFS_GAME_DIR : MAUSJAGD_GAME_DIR));
++		// Options from the diag file, e.g. debug channels; the game ID must come last
++		autoArgs.push_back(Mausjagd::diagArgs());
++		autoArgs.push_back(MAUSJAGD_GAME_ID);
++		for (Common::String &arg : autoArgs)
++			autoArgv.push_back(const_cast<char *>(arg.c_str()));
++		autoArgv.push_back(nullptr);
++		argc = autoArgs.size();
++		argv = autoArgv.data();
+ 	}
+ #endif
+ 
+diff --git a/backends/platform/3ds/mausjagd.cpp b/backends/platform/3ds/mausjagd.cpp
+new file mode 100644
+index 0000000000..0f6a23b3ad
+--- /dev/null
++++ b/backends/platform/3ds/mausjagd.cpp
+@@ -0,0 +1,181 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++// Diagnostic mode of the standalone "Mäusejagd im Grandhotel" 3DS build,
++// see mausjagd.h. Only compiled when MAUSJAGD_PORT is defined.
++
++#ifdef MAUSJAGD_PORT
++
++#define FORBIDDEN_SYMBOL_EXCEPTION_time_h
++
++#include <3ds.h>
++
++#include "backends/platform/3ds/mausjagd.h"
++#include "common/debug.h"
++#include "common/fs.h"
++#include "common/stream.h"
++#include "common/tokenizer.h"
++
++namespace Mausjagd {
++
++static uint64 appStartTick = 0;
++static bool diagOn = false;
++static Common::StringArray diagOptions;
++
++// First frame after a resolution change
++static bool firstFramePending = false;
++static uint firstFrameWidth = 0;
++static uint firstFrameHeight = 0;
++static uint32 resolutionChangeTime = 0;
++
++// Frame statistics of the current interval
++static bool statsRunning = false;
++static uint32 statsStart = 0;
++static uint32 statsFrames = 0;
++static uint64 statsDirtyPixels = 0;
++static uint64 statsFlushTicks = 0;
++static uint64 statsFlushMax = 0;
++static uint64 statsUpdateTicks = 0;
++static uint64 statsUpdateMax = 0;
++
++// The system tick runs at the ARM11 base clock on Old and New 3DS
++static uint32 ticksToMicros(uint64 ticks) {
++	return (uint32)(ticks * 1000000 / SYSCLOCK_ARM11);
++}
++
++void markAppStart() {
++	appStartTick = svcGetSystemTick();
++}
++
++uint32 millisSinceStart() {
++	return (uint32)((svcGetSystemTick() - appStartTick) * 1000 / SYSCLOCK_ARM11);
++}
++
++static void addOptions(const Common::String &text) {
++	Common::StringTokenizer tokens(text);
++	while (!tokens.empty()) {
++		Common::String token = tokens.nextToken();
++		if (!token.empty())
++			diagOptions.push_back(token);
++	}
++}
++
++static bool readDiagFile(const char *location) {
++	Common::FSNode node(Common::Path(location, '/'));
++	if (!node.exists() || node.isDirectory())
++		return false;
++
++	Common::SeekableReadStream *stream = node.createReadStream();
++	if (stream) {
++		while (!stream->eos() && !stream->err()) {
++			Common::String line = stream->readLine();
++			line.trim();
++			if (!line.empty() && line.firstChar() != '#')
++				addOptions(line);
++		}
++		delete stream;
++	}
++	return true;
++}
++
++void initDiag() {
++	diagOn = readDiagFile(MAUSJAGD_APP_DIR MAUSJAGD_DIAG_FILE) ||
++	         readDiagFile("romfs:/" MAUSJAGD_DIAG_FILE);
++	if (diagOn && diagOptions.empty())
++		addOptions(MAUSJAGD_DIAG_DEFAULT_ARGS);
++}
++
++bool diagEnabled() {
++	return diagOn;
++}
++
++const Common::StringArray &diagArgs() {
++	return diagOptions;
++}
++
++void diagResolutionChanged(uint width, uint height) {
++	if (!diagOn)
++		return;
++
++	firstFramePending = true;
++	firstFrameWidth = width;
++	firstFrameHeight = height;
++	resolutionChangeTime = millisSinceStart();
++}
++
++// Formats microseconds as milliseconds with one decimal
++static Common::String formatMillis(uint64 micros) {
++	return Common::String::format("%u.%u", (uint32)(micros / 1000), (uint32)(micros % 1000 / 100));
++}
++
++void diagFrame(uint32 dirtyPixels, uint64 flushTicks, uint64 updateTicks) {
++	if (!diagOn)
++		return;
++
++	const uint32 now = millisSinceStart();
++	if (firstFramePending) {
++		firstFramePending = false;
++		debug("diag: first frame at %ux%u, %u ms after the resolution change",
++		      firstFrameWidth, firstFrameHeight, now - resolutionChangeTime);
++	}
++
++	// The first interval starts with the first frame, each next one where the last ended
++	if (!statsRunning) {
++		statsRunning = true;
++		statsStart = now;
++		return;
++	}
++	statsFrames++;
++	statsDirtyPixels += dirtyPixels;
++	statsFlushTicks += flushTicks;
++	statsUpdateTicks += updateTicks;
++	if (flushTicks > statsFlushMax)
++		statsFlushMax = flushTicks;
++	if (updateTicks > statsUpdateMax)
++		statsUpdateMax = updateTicks;
++
++	const uint32 elapsed = now - statsStart;
++	if (elapsed < MAUSJAGD_DIAG_STATS_INTERVAL)
++		return;
++
++	// Frame rate with one decimal; "converted" is the area copied to the GPU texture
++	const uint32 fps10 = statsFrames * 10000 / elapsed;
++	debug("diag: %u frames in %u ms (%u.%u fps), converted avg %u px/frame, "
++	      "flush avg %s ms max %s ms, update avg %s ms max %s ms",
++	      statsFrames, elapsed, fps10 / 10, fps10 % 10,
++	      (uint32)(statsDirtyPixels / statsFrames),
++	      formatMillis(ticksToMicros(statsFlushTicks / statsFrames)).c_str(),
++	      formatMillis(ticksToMicros(statsFlushMax)).c_str(),
++	      formatMillis(ticksToMicros(statsUpdateTicks / statsFrames)).c_str(),
++	      formatMillis(ticksToMicros(statsUpdateMax)).c_str());
++
++	statsStart = now;
++	statsFrames = 0;
++	statsDirtyPixels = 0;
++	statsFlushTicks = 0;
++	statsFlushMax = 0;
++	statsUpdateTicks = 0;
++	statsUpdateMax = 0;
++}
++
++} // End of namespace Mausjagd
++
++#endif
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+index f88e088722..8fb8de0ea6 100644
+--- a/backends/platform/3ds/mausjagd.h
++++ b/backends/platform/3ds/mausjagd.h
+@@ -50,4 +50,53 @@
+ #define MAUSJAGD_GAME_ID "director:ggmd"
+ #endif
+ 
++// Diagnostic mode. It is on when this file exists in the app folder on the
++// SD card or in the RomFS root (the SD card wins). The file holds extra
++// command line options for the game start, separated by spaces or line
++// breaks; lines starting with '#' are comments. Without options,
++// MAUSJAGD_DIAG_DEFAULT_ARGS is used.
++// In diagnostic mode, every log line carries the time since app start, and
++// the backend logs startup milestones, the first frame after each change of
++// the game resolution, and frame statistics every few seconds.
++#ifndef MAUSJAGD_DIAG_FILE
++#define MAUSJAGD_DIAG_FILE "diag.txt"
++#endif
++
++#ifndef MAUSJAGD_DIAG_DEFAULT_ARGS
++#define MAUSJAGD_DIAG_DEFAULT_ARGS "--debuglevel=1 --debugflags=loading"
++#endif
++
++// Interval of the frame statistics in milliseconds
++#ifndef MAUSJAGD_DIAG_STATS_INTERVAL
++#define MAUSJAGD_DIAG_STATS_INTERVAL 5000
++#endif
++
++#include "common/str-array.h"
++
++namespace Mausjagd {
++
++// Remembers the start time of the app. Call it first thing in main().
++void markAppStart();
++
++// Milliseconds since markAppStart()
++uint32 millisSinceStart();
++
++// Checks for the diag file and reads its options. Needs the file system,
++// so call it after g_system was created.
++void initDiag();
++
++bool diagEnabled();
++
++// Extra command line options from the diag file
++const Common::StringArray &diagArgs();
++
++// Called by the backend when the game resolution changes
++void diagResolutionChanged(uint width, uint height);
++
++// Called by the backend after each screen update with the area that was
++// converted for the GPU and the time spent converting and in the whole update
++void diagFrame(uint32 dirtyPixels, uint64 flushTicks, uint64 updateTicks);
++
++} // End of namespace Mausjagd
++
+ #endif
+diff --git a/backends/platform/3ds/module.mk b/backends/platform/3ds/module.mk
+index 8662cac513..b02c3e9366 100644
+--- a/backends/platform/3ds/module.mk
++++ b/backends/platform/3ds/module.mk
+@@ -2,6 +2,7 @@ MODULE := backends/platform/3ds
+ 
+ MODULE_OBJS := \
+ 	main.o \
++	mausjagd.o \
+ 	allocHeapsOverride.o \
+ 	shader.shbin.o \
+ 	sprite.o \
+diff --git a/backends/platform/3ds/osystem-graphics.cpp b/backends/platform/3ds/osystem-graphics.cpp
+index ab1c8ab17e..0a11324cb4 100644
+--- a/backends/platform/3ds/osystem-graphics.cpp
++++ b/backends/platform/3ds/osystem-graphics.cpp
+@@ -23,6 +23,9 @@
+ 
+ #include "backends/platform/3ds/osystem.h"
+ #include "backends/platform/3ds/shader_shbin.h"
++#ifdef MAUSJAGD_PORT
++#include "backends/platform/3ds/mausjagd.h"
++#endif
+ #include "common/rect.h"
+ #include "graphics/blit.h"
+ #include "graphics/fontman.h"
+@@ -188,6 +191,9 @@ bool OSystem_3DS::setGraphicsMode(GraphicsModeID modeID) {
+ void OSystem_3DS::initSize(uint width, uint height,
+ 						   const Graphics::PixelFormat *format) {
+ 	debug("3ds initsize w:%d h:%d", width, height);
++#ifdef MAUSJAGD_PORT
++	Mausjagd::diagResolutionChanged(width, height);
++#endif
+ 	updateBacklight();
+ 	updateConfig();
+ 
+@@ -438,11 +444,27 @@ void OSystem_3DS::updateScreen() {
+ 		return;
+ 	}
+ 
++#ifdef MAUSJAGD_PORT
++	// Diagnostic mode: area converted for the GPU and time spent
++	const bool diag = Mausjagd::diagEnabled();
++	const u64 diagStart = diag ? svcGetSystemTick() : 0;
++	uint32 diagDirtyPixels = 0;
++	if (diag && _pfGame != _gameTopTexture.format) {
++		_dirtyRects.merge();
++		for (const Common::Rect &r : _dirtyRects)
++			diagDirtyPixels += r.width() * r.height();
++	}
++#endif
++
+ 	if (!_dirtyRects.empty()) {
+ 		flushGameScreen();
+ 		_dirtyRects.clear();
+ 	}
+ 
++#ifdef MAUSJAGD_PORT
++	const u64 diagFlushTicks = diag ? svcGetSystemTick() - diagStart : 0;
++#endif
++
+ // 	updateFocus();
+ 	updateMagnify();
+ 
+@@ -521,6 +543,11 @@ void OSystem_3DS::updateScreen() {
+ 			}
+ 		}
+ 	C3D_FrameEnd(0);
++
++#ifdef MAUSJAGD_PORT
++	if (diag)
++		Mausjagd::diagFrame(diagDirtyPixels, diagFlushTicks, svcGetSystemTick() - diagStart);
++#endif
+ }
+ 
+ void OSystem_3DS::setShakePos(int shakeXOffset, int shakeYOffset) {
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index 524bedb147..b2d2bd2bcb 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -39,6 +39,7 @@
+ #include "backends/fs/posix-drives/posix-drives-fs.h"
+ #ifdef MAUSJAGD_PORT
+ #include "backends/platform/3ds/mausjagd.h"
++#include "common/debug.h"
+ #endif
+ #include <unistd.h>
+ #include <time.h>
+@@ -165,6 +166,15 @@ void OSystem_3DS::initBackend() {
+ 	initAudio();
+ 	BaseBackend::initBackend();
+ 	initEvents();
++
++#ifdef MAUSJAGD_PORT
++	if (Mausjagd::diagEnabled()) {
++		Common::String options;
++		for (const Common::String &option : Mausjagd::diagArgs())
++			options += " " + option;
++		debug("diag: backend ready, diagnostic mode with options:%s", options.c_str());
++	}
++#endif
+ }
+ 
+ void OSystem_3DS::updateBacklight() {
+@@ -266,8 +276,20 @@ void OSystem_3DS::logMessage(LogMessageType::Type type, const char *message) {
+ 	printf("%s", message);
+ 
+ 	// Then log into file (via the logger)
+-	if (_logger)
++	if (_logger) {
++#ifdef MAUSJAGD_PORT
++		// Diagnostic mode: prefix each line with the time since app start in seconds
++		static bool lineStart = true;
++		if (Mausjagd::diagEnabled() && *message) {
++			if (lineStart) {
++				const uint32 ms = Mausjagd::millisSinceStart();
++				_logger->print(Common::String::format("[+%u.%03u] ", ms / 1000, ms % 1000).c_str());
++			}
++			lineStart = message[strlen(message) - 1] == '\n';
++		}
++#endif
+ 		_logger->print(message);
++	}
+ }
+ 
+ Common::WriteStream *OSystem_3DS::createLogFile() {

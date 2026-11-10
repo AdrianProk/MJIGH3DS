@@ -38,6 +38,8 @@ T=~/scummvm-test
 ```
 
 - Das Spiel einmalig mit `--add --path=/mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/game` eintragen. Target ist `ggmd-win-de`.
+- **Startwarnung abschalten:** In `~/scummvm-test/scummvm.ini` steht unter `[scummvm]` die Zeile `enable_unsupported_game_warning=false` (seit 2026-11-10). Ohne sie wartet ScummVM ohne Fenster am Dialog "Start anyway", bis das SIGINT von `timeout` ihn schließt. Die früheren Läufe haben dadurch 40 s am Dialog verloren.
+- **Raum direkt starten:** `--start-movie=ARTIST.DXR` oder an einem Frame `--start-movie=ARTIST.DXR@1203`. Die Frame-Nummern der Labels zeigt `--debuglevel=2 --debugflags=loading` (`Loading labels`); in ARTIST liegt `caught` auf Frame 1203.
 - Laufzeit mit `timeout -s INT -k 3 <s>` begrenzen. SIGINT beendet ScummVM nicht, deshalb gibt es nach 3 s ein SIGKILL (Exit 137).
 - **Nützliche Debug-Kanäle** der Director-Engine:
   - `fast`: ohne Frame-Pausen

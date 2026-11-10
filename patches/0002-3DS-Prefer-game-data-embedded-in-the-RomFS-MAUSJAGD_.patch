@@ -1,7 +1,7 @@
 From 3ffa20fcd0380ee2b4113ea46555051b2a472be7 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 18:15:33 +0100
-Subject: [PATCH 2/4] 3DS: Prefer game data embedded in the RomFS
+Subject: [PATCH 2/6] 3DS: Prefer game data embedded in the RomFS
  (MAUSJAGD_PORT)
 
 The standalone build now looks for the game in romfs:/game first and

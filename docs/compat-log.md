@@ -4,6 +4,22 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-10 – Startzeit, Startbildschirm, Kaltstart (Agent, Azahar selbst gestartet)
+
+- **Build:** `mausjagd.3dsx`, Fork `2022c2c09f`, Patches 0001–0009. Azahar startet der Agent seit heute selbst über `scripts/azahar-run.ps1` (Freigabe des Nutzers).
+- **Rückmeldung des Nutzers** zum Diag-Lauf um 20:45: Das Fangen einer Maus funktioniert, das Bild wird dabei **nicht mehr verzerrt** (B1). Kein Dialog beim Start (B5).
+- **Diag-Lauf 20:45** (Log des Nutzers): Backend bereit nach 0,7 s, Erkennung von +1,3 s bis +76,2 s, erstes Spielbild bei +78,6 s, Menü bei +93,3 s. Das Log endet beim Start des Intros.
+- **B6 behoben (T4.8):**
+  - Mit `--debugflags=detection` lag die Zeit vollständig im Durchlauf über die Director-Erkennungstabelle.
+  - Patch 0007 beschränkt ihn auf die Einträge von `ggmd`: Erkennung jetzt 0,17 s, erstes Spielbild nach 4,1 s (vorher 78,6 s).
+  - Messwerte stehen in `docs/performance.md`.
+- **Startbildschirm** (Patch 0008): Titel und Phasen-Balken oben, bis das Spiel sein erstes Bild zeigt. Im Emulator per Bild geprüft: zentriert, Umlaute korrekt.
+- **Oberer Bildschirm im 800-Pixel-Modus:**
+  - Azahar zeigte oben nur die linke Hälfte des Bildes, doppelt so breit; das betraf Startbildschirm **und** Spiel.
+  - Ursache ist `gfxSetWide(true)` im Backend. Patch 0009 lässt den Port im normalen 400×240-Modus, danach war das Bild oben vollständig.
+  - Möglicherweise war das der "waagerecht verschmierte, versetzte" Eindruck aus B1. Der Nutzer hat aber den Zustand vor Patch 0009 als unverzerrt gemeldet; das bleibt in T4.11 zu klären.
+- **Kaltstart (T4.7):** App-Ordner entfernt, keine `diag.txt`. Ergebnis: kein ScummVM-Dialog, `sdmc:/3ds/mausjagd/` mit `scummvm.ini`, Log und `saves/` wird angelegt, das Spiel startet direkt. Erstes Spielbild nach 5,9 s (Wanduhr ab Start von Azahar), 20 s später läuft der Startfilm (Hotel) auf beiden Bildschirmen.
+
 ### 2026-11-10 – T4.6 Testhilfen und erste Einordnung B1–B6 (Agent)
 
 - **Diagnose-Build:** `DIAG=1 bash scripts/build-3ds.sh` erzeugt `dist/3ds/mausjagd-diag.3dsx`, Fork `215225f512`, Patches 0001–0006. Bedienung und Log-Format stehen in `docs/build-3ds.md` (Diagnosemodus). Die normale `dist/3ds/mausjagd.3dsx` hat denselben Stand, nur ohne `diag.txt`.

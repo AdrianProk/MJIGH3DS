@@ -1,0 +1,38 @@
+From 2022c2c09f1d287bd9d253dc5d3decb696fa101a Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 21:50:15 +0100
+Subject: [PATCH 9/9] 3DS: Use the normal top screen mode in the standalone
+ build (MAUSJAGD_PORT)
+
+The backend switches the top screen to the 800px wide mode. The
+standalone build shows the game 1:1 or scaled on the top screen, so the
+half-width pixels bring no gain there, and the emulator Azahar shows
+only the left half of the wide framebuffer, stretched to the full
+width. The standalone build now keeps the normal 400x240 mode, which
+the backend already supports.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index df87586a0a..c5ef979830 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -53,7 +53,15 @@ int main(int argc, char *argv[]) {
+ 	// 800px wide top screen is not available on old 2DS systems
+ 	u8 systemModel = 0;
+ 	CFGU_GetSystemModel(&systemModel);
++#ifdef MAUSJAGD_PORT
++	// Standalone build: normal 400x240 top screen. The game is shown 1:1 or
++	// scaled there, so the 800px mode with its half-width pixels brings no gain,
++	// and emulators like Azahar show only its left half, stretched.
++	gfxSetWide(false);
++	(void)systemModel;
++#else
+ 	gfxSetWide(systemModel != SYSTEM_MODEL_2DS);
++#endif
+ 
+ 	romfsInit();
+ 	osSetSpeedupEnable(true);

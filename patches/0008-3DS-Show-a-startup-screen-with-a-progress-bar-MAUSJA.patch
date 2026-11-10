@@ -1,0 +1,205 @@
+From 8707ab7423f890e460471ac4a754486244ca0992 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 21:46:15 +0100
+Subject: [PATCH 8/9] 3DS: Show a startup screen with a progress bar
+ (MAUSJAGD_PORT)
+
+Game detection and engine start block the main thread for a few
+seconds without drawing a frame. The standalone build now shows a
+title and a progress bar on the top screen from the end of
+initBackend() until the engine has set its resolution and draws its
+first frame. The bar advances when the detection starts and when the
+engine starts (engineInit()). A ScummVM dialog, e.g. an error message,
+ends the startup screen so that it can be seen.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/osystem-graphics.cpp | 89 ++++++++++++++++++++++
+ backends/platform/3ds/osystem.cpp          |  8 ++
+ backends/platform/3ds/osystem.h            | 21 +++++
+ 3 files changed, 118 insertions(+)
+
+diff --git a/backends/platform/3ds/osystem-graphics.cpp b/backends/platform/3ds/osystem-graphics.cpp
+index 0a11324cb4..ad97094f2a 100644
+--- a/backends/platform/3ds/osystem-graphics.cpp
++++ b/backends/platform/3ds/osystem-graphics.cpp
+@@ -193,6 +193,10 @@ void OSystem_3DS::initSize(uint width, uint height,
+ 	debug("3ds initsize w:%d h:%d", width, height);
+ #ifdef MAUSJAGD_PORT
+ 	Mausjagd::diagResolutionChanged(width, height);
++	// The first resolution set after engineInit() is the engine's; its next
++	// frame replaces the startup screen
++	if (_startupPhase == kStartupStartingGame)
++		_startupEngineReady = true;
+ #endif
+ 	updateBacklight();
+ 	updateConfig();
+@@ -445,6 +449,16 @@ void OSystem_3DS::updateScreen() {
+ 	}
+ 
+ #ifdef MAUSJAGD_PORT
++	// Keep the startup screen until the engine has set its resolution. A
++	// ScummVM dialog (e.g. an error message) ends it, so that it can be seen.
++	if (_startupPhase != kStartupDone) {
++		if (!_startupEngineReady && !_overlayVisible) {
++			renderStartupScreen();
++			return;
++		}
++		setStartupPhase(kStartupDone);
++	}
++
+ 	// Diagnostic mode: area converted for the GPU and time spent
+ 	const bool diag = Mausjagd::diagEnabled();
+ 	const u64 diagStart = diag ? svcGetSystemTick() : 0;
+@@ -899,4 +913,79 @@ void OSystem_3DS::flushCursor() {
+ 	}
+ }
+ 
++#ifdef MAUSJAGD_PORT
++// Startup screen of the standalone build. The detection and the engine
++// block the main thread for a few seconds without drawing, so the top
++// screen shows a title and a progress bar that advances with each phase.
++// Own design, no game graphics.
++
++void OSystem_3DS::engineInit() {
++	setStartupPhase(kStartupStartingGame);
++}
++
++void OSystem_3DS::setStartupPhase(StartupPhase phase) {
++	_startupPhase = phase;
++	if (phase == kStartupDone) {
++		_startupScreen.free();
++		return;
++	}
++
++	const int width = 400, height = 240;
++	if (!_startupScreen.getPixels())
++		_startupScreen.create(width, height, &DEFAULT_MODE);
++
++	const Graphics::PixelFormat &pf = _pfDefaultTexture;
++	const uint32 background = pf.RGBToColor(18, 24, 44);
++	const uint32 title = pf.RGBToColor(255, 255, 255);
++	const uint32 text = pf.RGBToColor(176, 186, 208);
++	const uint32 barFrame = pf.RGBToColor(176, 186, 208);
++	const uint32 barFill = pf.RGBToColor(240, 200, 80);
++
++	_startupScreen.fillRect(Common::Rect(width, height), background);
++
++	const Graphics::Font *bigFont = FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
++	const Graphics::Font *font = FontMan.getFontByUsage(Graphics::FontManager::kGUIFont);
++	if (bigFont)
++		bigFont->drawString(&_startupScreen, Common::U32String("M\xc3\xa4usejagd im Grandhotel"),
++		                    0, 76, width, title, Graphics::kTextAlignCenter);
++	if (font)
++		font->drawString(&_startupScreen, Common::U32String("3DS-Port mit ScummVM"),
++		                 0, 96, width, text, Graphics::kTextAlignCenter);
++
++	// Progress bar: one step per phase, the last step is the first frame of the game
++	const Common::Rect bar(80, 128, 320, 140);
++	_startupScreen.frameRect(bar, barFrame);
++	const int fillWidth = (bar.width() - 4) * phase / kStartupNumPhases;
++	if (fillWidth > 0)
++		_startupScreen.fillRect(Common::Rect(bar.left + 2, bar.top + 2, bar.left + 2 + fillWidth, bar.bottom - 2), barFill);
++
++	const char *status = phase == kStartupCheckingData ? "Spieldaten werden gepr\xc3\xbc" "ft ..." : "Spiel wird gestartet ...";
++	if (font)
++		font->drawString(&_startupScreen, Common::U32String(status),
++		                 0, 150, width, text, Graphics::kTextAlignCenter);
++
++	_startupScreen.setFilteringMode(false);
++	_startupScreen.markDirty();
++	renderStartupScreen();
++}
++
++void OSystem_3DS::renderStartupScreen() {
++	C3D_FrameBegin(0);
++		_startupScreen.transfer();
++	C3D_FrameEnd(0);
++
++	C3D_FrameBegin(0);
++		C3D_RenderTargetClear(_renderTargetTop, C3D_CLEAR_ALL, 0x00000000, 0);
++		C3D_FrameDrawOn(_renderTargetTop);
++		C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _projectionLocation, &_projectionTop);
++		C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _modelviewLocation, _startupScreen.getMatrix());
++		_startupScreen.render();
++
++		// The bottom screen stays black until the game starts
++		C3D_RenderTargetClear(_renderTargetBottom, C3D_CLEAR_ALL, 0x00000000, 0);
++		C3D_FrameDrawOn(_renderTargetBottom);
++	C3D_FrameEnd(0);
++}
++#endif
++
+ } // namespace N3DS
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index 91e0cccb6a..a94ac3118c 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -94,6 +94,10 @@ OSystem_3DS::OSystem_3DS():
+ 	_screen(kScreenBoth),
+ 	_blitFunc(nullptr)
+ {
++#ifdef MAUSJAGD_PORT
++	_startupPhase = kStartupDone;
++	_startupEngineReady = false;
++#endif
+ 	chdir("sdmc:/");
+ 
+ 	DrivesPOSIXFilesystemFactory *fsFactory = new DrivesPOSIXFilesystemFactory();
+@@ -174,6 +178,10 @@ void OSystem_3DS::initBackend() {
+ 	initEvents();
+ 
+ #ifdef MAUSJAGD_PORT
++	// Startup screen until the game shows its first frame; the game
++	// detection follows now
++	setStartupPhase(kStartupCheckingData);
++
+ 	if (Mausjagd::diagEnabled()) {
+ 		Common::String options;
+ 		for (const Common::String &option : Mausjagd::diagArgs())
+diff --git a/backends/platform/3ds/osystem.h b/backends/platform/3ds/osystem.h
+index ddee463fc3..b528db3925 100644
+--- a/backends/platform/3ds/osystem.h
++++ b/backends/platform/3ds/osystem.h
+@@ -181,6 +181,9 @@ public:
+ 	virtual int16 getOverlayWidth() const;
+ 	void displayMessageOnOSD(const Common::U32String &msg) override;
+ 	void displayActivityIconOnOSD(const Graphics::Surface *icon) override;
++#ifdef MAUSJAGD_PORT
++	void engineInit() override;
++#endif
+ 
+ 	bool showMouse(bool visible);
+ 	void warpMouse(int x, int y);
+@@ -214,6 +217,19 @@ private:
+ 	void flushGameScreen();
+ 	void flushCursor();
+ 
++#ifdef MAUSJAGD_PORT
++	// Startup screen of the standalone build: title and a progress bar on the
++	// top screen until the game shows its first frame
++	enum StartupPhase {
++		kStartupDone = 0,
++		kStartupCheckingData = 1, // backend ready, game detection follows
++		kStartupStartingGame = 2, // engine is loading its first movie
++		kStartupNumPhases = 3
++	};
++	void setStartupPhase(StartupPhase phase);
++	void renderStartupScreen();
++#endif
++
+ 	virtual Common::Path getDefaultLogFileName();
+ 	virtual Common::WriteStream *createLogFile();
+ 
+@@ -250,6 +266,11 @@ private:
+ 	Sprite _overlay;
+ 	Sprite _activityIcon;
+ 	Sprite _osdMessage;
++#ifdef MAUSJAGD_PORT
++	Sprite _startupScreen;
++	StartupPhase _startupPhase;
++	bool _startupEngineReady; // the engine has set its resolution
++#endif
+ 	bool _filteringEnabled;
+ 
+ 	enum {

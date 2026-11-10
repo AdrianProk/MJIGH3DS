@@ -1,0 +1,89 @@
+From fcf8a99c4edc922b365ea2fc4d5ff107e0bbbe3b Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 21:43:28 +0100
+Subject: [PATCH 7/9] ENGINES: Only check the entries of the requested game
+ (MAUSJAGD_PORT)
+
+identifyGame() only accepts a match with the requested game ID, but
+detectGame() looks up the files of every entry in the detection table.
+For the Director engine with its thousands of entries, many of them
+Mac variants that are checked under several file names, this takes
+75 seconds on the 3DS (emulator), while it is instantaneous on a PC.
+
+In the standalone build, identifyGame() now restricts detectGame() to
+the entries of the requested game.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/advancedDetector.cpp | 21 +++++++++++++++++++++
+ engines/advancedDetector.h   |  8 ++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/engines/advancedDetector.cpp b/engines/advancedDetector.cpp
+index 4042d1c44f..ac7319a228 100644
+--- a/engines/advancedDetector.cpp
++++ b/engines/advancedDetector.cpp
+@@ -401,9 +401,20 @@ Common::Error AdvancedMetaEngineDetectionBase::identifyGame(DetectedGame &game,
+ 	// Clear md5 cache before each detection starts, just in case.
+ 	ADCacheMan.clear();
+ 
++#ifdef MAUSJAGD_PORT
++	// Standalone game build: only check the entries of the requested game.
++	// Looking up the files of all other entries takes more than a minute
++	// on the 3DS, mostly for the many Mac variants of each file name.
++	_onlyGameId = gameid;
++#endif
++
+ 	// Run the detector on this
+ 	ADDetectedGames matches = detectGame(files.begin()->getParent(), allFiles, language, platform, extra);
+ 
++#ifdef MAUSJAGD_PORT
++	_onlyGameId.clear();
++#endif
++
+ 	if (cleanupPirated(matches))
+ 		return Common::kNoGameDataFoundError;
+ 
+@@ -737,6 +748,11 @@ ADDetectedGames AdvancedMetaEngineDetectionBase::detectGame(const Common::FSNode
+ 	for (descPtr = _gameDescriptors; ((const ADGameDescription *)descPtr)->gameId != nullptr; descPtr += _descItemSize) {
+ 		g = (const ADGameDescription *)descPtr;
+ 
++#ifdef MAUSJAGD_PORT
++		if (!_onlyGameId.empty() && _onlyGameId != g->gameId)
++			continue;
++#endif
++
+ 		for (fileDesc = g->filesDescriptions; fileDesc->fileName; fileDesc++) {
+ 			MD5Properties md5prop = gameFileToMD5Props(fileDesc, g->flags);
+ 			Common::String fname = fileDesc->fileName;
+@@ -767,6 +783,11 @@ ADDetectedGames AdvancedMetaEngineDetectionBase::detectGame(const Common::FSNode
+ 	for (i = 0, descPtr = _gameDescriptors; ((const ADGameDescription *)descPtr)->gameId != nullptr; descPtr += _descItemSize, ++i) {
+ 		g = (const ADGameDescription *)descPtr;
+ 
++#ifdef MAUSJAGD_PORT
++		if (!_onlyGameId.empty() && _onlyGameId != g->gameId)
++			continue;
++#endif
++
+ 		// Do not even bother to look at entries which do not have matching
+ 		// language and platform (if specified).
+ 		if ((language != Common::UNK_LANG && g->language != Common::UNK_LANG && g->language != language
+diff --git a/engines/advancedDetector.h b/engines/advancedDetector.h
+index 473b5e5ffe..08f4abbfa2 100644
+--- a/engines/advancedDetector.h
++++ b/engines/advancedDetector.h
+@@ -555,6 +555,14 @@ private:
+ 	Common::HashMap<Common::String, bool, Common::IgnoreCase_Hash, Common::IgnoreCase_EqualTo> _grayListMap;
+ 	Common::HashMap<Common::String, bool, Common::IgnoreCase_Hash, Common::IgnoreCase_EqualTo> _globsMap;
+ 	bool _hashMapsInited;
++#ifdef MAUSJAGD_PORT
++	/**
++	 * Standalone game build: when not empty, detectGame() only checks the
++	 * entries with this game ID. Set by identifyGame(), which only accepts
++	 * a match with the requested game ID anyway.
++	 */
++	Common::String _onlyGameId;
++#endif
+ 
+ protected:
+ 	/**

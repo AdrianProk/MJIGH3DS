@@ -77,6 +77,15 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
     - Marken: `diag: backend ready …`, `CPU extensions:` (danach läuft die Erkennung), `Running …` (Erkennung fertig), `Starting v404 Director game` (Engine), `3ds initsize`, `diag: first frame at WxH, N ms after the resolution change`.
     - Alle 5 s eine Zeile `diag: N frames in T ms (F fps), converted avg P px/frame, flush avg/max …, update avg/max …`. Dabei ist *converted* die Fläche, die das Backend pro Frame von CLUT8 in die GPU-Textur umrechnet, *flush* die Zeit dafür und *update* die Dauer von `updateScreen()` einschließlich GPU-Übergabe. Die restliche Zeit eines Frames verbraucht die Engine (Lingo, Dekodieren, Zeichnen).
   - Code: `backends/platform/3ds/mausjagd.cpp`; Anbindung in `main.cpp`, `osystem.cpp` (`logMessage`, `initBackend`) und `osystem-graphics.cpp` (`initSize`, `updateScreen`).
+- **Schnelle Spielerkennung (Patch 0007, T4.8):** `AdvancedMetaEngineDetectionBase::identifyGame()` beschränkt `detectGame()` im Port auf die Einträge der gesuchten Game-ID. Vorher schlug die Erkennung die Dateien aller Director-Einträge nach; das dauerte im Emulator 75 s (Details in `docs/performance.md`). Die Änderung steht in `engines/advancedDetector.{h,cpp}` hinter `#ifdef MAUSJAGD_PORT`.
+- **Startbildschirm mit Phasen-Balken (Patch 0008, Wunsch des Nutzers):**
+  - Oben erscheinen der Titel "Mäusejagd im Grandhotel", "3DS-Port mit ScummVM", ein Balken und eine Statuszeile; unten bleibt es schwarz. Das Design ist eigen, ohne Grafik aus dem Spiel (PLAN.md §7). Als Schrift dient die eingebaute `kBigGUIFont` mit Umlauten, weil die GUI-Themes beim Start noch nicht geladen sind.
+  - Phase 1 am Ende von `initBackend()`: "Spieldaten werden geprüft ..." (Balken 1/3). Phase 2 in `engineInit()`: "Spiel wird gestartet ..." (2/3).
+  - Das Spiel übernimmt den Bildschirm beim ersten `updateScreen()`, nachdem die Engine ihre Auflösung gesetzt hat. Ein ScummVM-Dialog (Overlay, z. B. eine Fehlermeldung) beendet den Startbildschirm sofort, damit er sichtbar ist.
+  - Bis dahin zeichnet `updateScreen()` nur den Startbildschirm; Bildänderungen des Spiels sammeln sich als Dirty Rects und erscheinen danach.
+  - Code: `OSystem_3DS::setStartupPhase()`, `renderStartupScreen()`, `engineInit()` in `osystem-graphics.cpp`.
+- **Normaler Modus des oberen Bildschirms (Patch 0009):** Das Backend schaltet sonst den 800-Pixel-Breitmodus ein (`gfxSetWide`). Azahar zeigt davon nur die linke Hälfte, doppelt so breit, und für den Port bringt der Modus nichts. Der Port bleibt bei 400×240.
+- **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`).
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

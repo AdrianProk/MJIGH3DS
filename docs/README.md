@@ -19,5 +19,5 @@ Befunde, Protokolle und Build-Doku des Projekts. Sie enthalten nur Metadaten und
 | `build-desktop.md` | ScummVM-Desktop-Build | T3.2 |
 | `build-3ds.md` | 3DS-Toolchain und -Build | T4.1 ff. |
 | `3ds-ux.md` | Bildschirm-Layout, Touch, Treffhilfe, Systemverhalten | T5.1 ff. |
-| `performance.md` | Messwerte und Optimierungen | T5.5 ff. |
+| `performance.md` | Messwerte und Optimierungen | T4.8, T5.5 ff. |
 | `blockers.md` | Offene Blocker mit Lösungsversuchen | bei Bedarf |

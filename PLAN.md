@@ -208,6 +208,13 @@ MJIGH3DS/
 | B5 | Beim Start erscheint eine **ScummVM-Warnung** | Director-Spiele sind in ScummVM `ADGF_UNSTABLE`, deshalb kommt der Dialog aus `Engine::warnUserAboutUnsupportedGame()`. Abschaltbar über `enable_unsupported_game_warning` | – | T4.7 |
 | B6 | Der **Start dauert sehr lange** | Log: geöffnet 19:29:51, "Running …" um 19:31:36, also 1:45 min, einschließlich Wartezeit am Dialog aus B5 | Erkennung durchsucht die RomFS (442 Dateien, Scan-Tiefe 5, MD5); Laden von `SHARED.DXR`; Emulator-Overhead; die Startbildschirm-Pausen des Originals | T4.8 |
 
+**Stand 2026-11-10, abends:**
+- **B5** ist behoben (Patch 0006, Kaltstart ohne Dialog).
+- **B6** ist im Emulator behoben: Die Erkennung prüfte alle Einträge der Director-Tabelle (75 s). Patch 0007 beschränkt sie auf `ggmd`; das erste Spielbild kommt jetzt nach 4,1 s. Die Messung auf dem New 3DS steht aus.
+- **B1** tritt laut Nutzer nicht mehr auf. Nebenbefund: Azahar zeigt den 800-Pixel-Modus des oberen Bildschirms nur halb; Patch 0009 nutzt im Port den normalen Modus.
+- **Neu** auf Wunsch des Nutzers: Startbildschirm mit Phasen-Balken (Patch 0008, T4.13).
+- **Offen:** B2, B3 und B4.
+
 **Vorgehen:**
 1. **Erst einordnen, dann beheben (T4.6).** Jeder Befund wird am Desktop gegengeprüft: im offiziellen ScummVM für Windows (Nutzer) und im eigenen Linux-Build ohne Fenster (Agent). Tritt er auch dort auf, liegt der Fehler in der Director-Engine; sonst im 3DS-Backend oder an der Rechenleistung. Für die 3DS-Läufe kommt Diagnose-Logging dazu: Filmwechsel und Zeitstempel ins Log.
 2. **Reihenfolge:**

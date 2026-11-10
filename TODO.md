@@ -14,6 +14,7 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
    - 7-Zip ist nicht installiert.
    - **Build-Umgebung ist WSL1** (VT-x ist im BIOS aus, siehe `docs/environment.md`). Der Desktop-Build entsteht als Windows-EXE per MinGW-Cross-Compile.
    - `scummvm.exe` stürzt in der Sandbox des Agenten ab. GUI-Tests macht der Nutzer; der Agent liest danach die Logs.
+   - **Azahar** darf der Agent selbst starten (Freigabe 2026-11-10), z. B. für Startmessungen ohne Eingaben: `scripts/azahar-run.ps1`. Bilder nur über dieses Skript (PrintWindow, nur das Azahar-Fenster), nie als Bildschirmausschnitt.
 6. **Freigaben:** Nur nach Rückfrage beim Nutzer: Commit/Push, Fork oder PR auf GitHub, Installation neuer Systemsoftware (WSL2, Docker, devkitPro), Tests auf echter 3DS-Hardware, Entscheidungen an den Gates G1/G2.
 7. **Patches:** Änderungen an ScummVM nur im Branch `mausjagd` des Forks vornehmen. Der Fork liegt seit WSL1 unter `~/scummvm` in Ubuntu, nicht mehr in `scummvm/` im Repo. Nach jeder abgeschlossenen Aufgabe mit Engine-Änderungen die Serie neu exportieren: `git -C ~/scummvm format-patch --no-signature upstream-base..mausjagd -o /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/patches/` (vorher alte `*.patch` löschen). Port-spezifischer Code steht hinter `#ifdef MAUSJAGD_PORT`.
 
@@ -193,17 +194,24 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - **Diagnose-Build** fertig: Patch 0005, `DIAG=1` erzeugt `dist/3ds/mausjagd-diag.3dsx`. Abweichend vom Plan ist der Modus ein Laufzeitschalter (`diag.txt` in der RomFS oder auf der SD-Karte), kein eigenes Binary; so lässt er sich auf echter Hardware ohne Neubau einschalten. Er liefert Zeitstempel ab App-Start, Startmarken und alle 5 s Bildrate und Umrechnungszeiten (`docs/build-3ds.md`).
     - **Desktop-Vergleich (Agent):** B5 tritt auch am Desktop auf, B2 und B6 nicht; Details in `docs/compat-log.md`. Neues Werkzeug `tools/mov_info.py`: Alle Raumvideos haben das Format des Intros, also scheidet das Videoformat als Ursache für B1 aus.
     - **Offen:** Diag-Lauf im Emulator und Desktop-Vergleich durch den Nutzer (B1, B3, B4, Raumname); Anleitung in `docs/compat-log.md`.
-- [ ] **T4.7** **B5:** ScummVM-Warnung beim Start entfernen.
+    - **Update** (2026-11-10, abends): Der Diag-Lauf des Nutzers lieferte die Startphasen (B6 → T4.8 erledigt im Emulator). Laut Nutzer tritt B1 nicht mehr auf. Desktop-Vergleich zu B3 und B4 steht weiter aus.
+- [x] **T4.7** **B5:** ScummVM-Warnung beim Start entfernen.
   - Ursache: `ADGF_UNSTABLE` aller Director-Einträge führt zu `Engine::warnUserAboutUnsupportedGame()`.
   - Im Port-Modus `enable_unsupported_game_warning` standardmäßig auf `false` setzen, als 3DS-Patch hinter `#ifdef MAUSJAGD_PORT`. Den Erkennungseintrag nicht ändern.
   - Danach prüfen, ob beim Kaltstart (leerer App-Ordner) weitere Dialoge oder Hinweise erscheinen, und auch diese abschalten.
   *Fertig, wenn:* ein Kaltstart im Emulator ohne jeden ScummVM-Dialog direkt im Startbildschirm des Spiels landet.
-  → **Umgesetzt** (2026-11-10): Patch 0006 setzt im Port `enable_unsupported_game_warning` standardmäßig auf `false` (in `OSystem_3DS::initBackend()`). In beiden `.3dsx` enthalten. **Offen:** Kaltstart-Test im Emulator (Teil A der Anleitung in `docs/compat-log.md`).
+  → **Erledigt** (2026-11-10): Patch 0006 setzt im Port `enable_unsupported_game_warning` standardmäßig auf `false` (in `OSystem_3DS::initBackend()`). Kaltstart in Azahar ohne App-Ordner: kein Dialog, das Spiel startet direkt (`docs/compat-log.md`).
 - [ ] **T4.8** **B6:** Startzeit messen und verkürzen.
   - Mit den Zeitstempeln aus T4.6 die Phasen messen: Laden der `.3dsx`, Backend-Init, Erkennung (durchsucht die RomFS mit 442 Dateien, Scan-Tiefe 5, MD5), Engine-Init, `SHARED.DXR`, erster Frame.
   - Kandidaten: Erkennung im Port verkürzen (z. B. mit vorkonfiguriertem Target bzw. Variante, oder nur `MAUSJAGD.EXE`/`SHARED.DXR` prüfen), RomFS-Zugriffe bündeln.
   - Die Pausen des Startbildschirms sind original und bleiben.
   *Fertig, wenn:* Messwerte vorher/nachher in `docs/performance.md` stehen und die App auf dem New 3DS nach höchstens 10 s den Startbildschirm zeigt (PLAN.md §3), oder begründet ist, warum nicht.
+  → **Im Emulator erfüllt** (2026-11-10):
+    - Die Erkennung schlug alle Einträge der Director-Tabelle nach und brauchte dafür 75 s. Patch 0007 beschränkt sie im Port auf `ggmd`.
+    - Erstes Spielbild jetzt nach 4,1 s ab App-Start (vorher 78,6 s), nach 6–7 s Wanduhr ab Start von Azahar; Messwerte in `docs/performance.md`.
+    - **Offen:** Messung auf dem New 3DS (T4.5).
+- [x] **T4.13** Ladeanzeige beim Start (Wunsch des Nutzers: "Phasen-Balken").
+  → **Erledigt** (2026-11-10, Patch 0008): Oben erscheinen Titel und Balken mit Statuszeile ("Spieldaten werden geprüft ...", "Spiel wird gestartet ..."), bis das Spiel sein erstes Bild zeigt; Design ohne Spielgrafik. Dazu lässt Patch 0009 den oberen Bildschirm im normalen 400×240-Modus, weil Azahar den 800-Pixel-Modus nur halb zeigt. Im Emulator per Bild geprüft.
 - [ ] **T4.9** **B3:** Figuren beim Betreten eines Raums weiß, bis die Raummusik endet.
   - Raum bestimmen (T4.6).
   - Lingo des Raums lesen (`analysis/lingo/<RAUM>/`): Raumstart, `puppetSound`/`soundBusy`-Schleifen, `puppetPalette`, Ink und `updateStage`.

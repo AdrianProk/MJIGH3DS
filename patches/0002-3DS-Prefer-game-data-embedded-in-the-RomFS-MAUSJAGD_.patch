@@ -1,0 +1,86 @@
+From 3ffa20fcd0380ee2b4113ea46555051b2a472be7 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Tue, 10 Nov 2026 18:15:33 +0100
+Subject: [PATCH 2/2] 3DS: Prefer game data embedded in the RomFS
+ (MAUSJAGD_PORT)
+
+The standalone build now looks for the game in romfs:/game first and
+falls back to sdmc:/3ds/mausjagd/game. This allows shipping a single
+.3dsx that contains the game data. Writes (saves, FileIO) still go to
+the save folder on the SD card.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp   | 12 +++++++++---
+ backends/platform/3ds/mausjagd.h | 15 +++++++++++++--
+ 2 files changed, 22 insertions(+), 5 deletions(-)
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index 10e80e951f..552e8f16ff 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -23,6 +23,8 @@
+ #include "backends/plugins/3ds/3ds-provider.h"
+ #ifdef MAUSJAGD_PORT
+ #include "backends/platform/3ds/mausjagd.h"
++#include "common/fs.h"
++#include "common/str.h"
+ #endif
+ 
+ #include <3ds.h>
+@@ -69,13 +71,17 @@ int main(int argc, char *argv[]) {
+ 
+ #ifdef MAUSJAGD_PORT
+ 	// Standalone build: when started without arguments (Homebrew Launcher, HOME menu),
+-	// run the game directly from its fixed folder instead of showing the launcher.
++	// run the game directly instead of showing the launcher. The game data is taken
++	// from the RomFS if it was embedded there, otherwise from the folder on the SD card.
+ 	// ScummVM creates a temporary target for the game ID and detects the variant in --path.
+ 	static char autoArg0[] = "mausjagd";
+-	static char autoArgPath[] = "--path=" MAUSJAGD_GAME_DIR;
+ 	static char autoArgGame[] = MAUSJAGD_GAME_ID;
+-	static char *autoArgv[] = { autoArg0, autoArgPath, autoArgGame, nullptr };
++	static Common::String autoArgPath;
++	static char *autoArgv[] = { autoArg0, nullptr, autoArgGame, nullptr };
+ 	if (argc <= 1) {
++		const bool embedded = Common::FSNode(Common::Path(MAUSJAGD_ROMFS_GAME_DIR "/" MAUSJAGD_GAME_CHECK_FILE, '/')).exists();
++		autoArgPath = Common::String("--path=") + (embedded ? MAUSJAGD_ROMFS_GAME_DIR : MAUSJAGD_GAME_DIR);
++		autoArgv[1] = const_cast<char *>(autoArgPath.c_str());
+ 		argc = 3;
+ 		argv = autoArgv;
+ 	}
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+index 32ca5a6fc9..f88e088722 100644
+--- a/backends/platform/3ds/mausjagd.h
++++ b/backends/platform/3ds/mausjagd.h
+@@ -24,17 +24,28 @@
+ 
+ // Settings for the standalone "Mäusejagd im Grandhotel" 3DS build.
+ // Only used when MAUSJAGD_PORT is defined. The app keeps its config,
+-// log, saves and game data in its own folder, so it can live next to
+-// a regular ScummVM installation, and starts the game without the launcher.
++// log and saves in its own folder, so it can live next to a regular
++// ScummVM installation, and starts the game without the launcher.
++// Game data is taken from the RomFS of the .3dsx if it was embedded
++// there, otherwise from a folder on the SD card.
+ 
+ #ifndef MAUSJAGD_APP_DIR
+ #define MAUSJAGD_APP_DIR "sdmc:/3ds/mausjagd/"
+ #endif
+ 
++#ifndef MAUSJAGD_ROMFS_GAME_DIR
++#define MAUSJAGD_ROMFS_GAME_DIR "romfs:/game"
++#endif
++
+ #ifndef MAUSJAGD_GAME_DIR
+ #define MAUSJAGD_GAME_DIR MAUSJAGD_APP_DIR "game"
+ #endif
+ 
++// File used to check whether game data is present in a folder
++#ifndef MAUSJAGD_GAME_CHECK_FILE
++#define MAUSJAGD_GAME_CHECK_FILE "MAUSJAGD.EXE"
++#endif
++
+ #ifndef MAUSJAGD_GAME_ID
+ #define MAUSJAGD_GAME_ID "director:ggmd"
+ #endif

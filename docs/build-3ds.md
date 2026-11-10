@@ -51,14 +51,21 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
   - `osystem.cpp`: Konfiguration, Log und Spielstände liegen in `sdmc:/3ds/mausjagd/`. Ein normales ScummVM unter `/3ds/scummvm/` bleibt unberührt.
   - `engines/dialogs.cpp`: "Zurück zum Launcher" im Spielmenü ist deaktiviert. Beim Beenden geht es zurück zum Homebrew Launcher bzw. HOME-Menü (`gui_return_to_launcher_at_exit` ist standardmäßig aus).
 - **Build:** `CPPFLAGS=-DMAUSJAGD_PORT` an `configure`; Titel "Mäusejagd im Grandhotel" im SMDH über `make APP_TITLE=…`; Build-Ordner `~/build/3ds`. Der normale Build liegt in `~/build/3ds-vanilla`.
-- **SD-Karte:**
+- **Spieldaten in der .3dsx (Patch 0002, Standard `EMBED_GAME=1`):**
+  - `scripts/stage_game_data.py` kopiert die 442 als `nötig` markierten Dateien aus `docs/inventory.md` (176,1 MB) nach `~/build/3ds/romfs-extra/game` und prüft jede gegen Größe und SHA-1.
+  - Über `make scummvm.3dsx DIST_3DS_EXTRA_FILES=…/game` landen sie als `romfs:/game` in der `.3dsx`. Optionale Galerie-Dateien und Beilagen sind nicht dabei.
+  - Die App nimmt `romfs:/game`, wenn dort `MAUSJAGD.EXE` liegt, sonst `sdmc:/3ds/mausjagd/game`. Mit `EMBED_GAME=0` entsteht eine schlanke `.3dsx`, die die Daten von der SD-Karte liest.
+  - Die RomFS hängt in ScummVMs Suchpfad nur mit Tiefe 1 (`addSysArchivesToSearchSet`), deshalb kommen sich Themes und Spieldaten nicht in die Quere.
+  - Schreibzugriffe gehen trotz schreibgeschützter RomFS: FileIO schreibt über den Spielstand-Manager (`engines/director/lingo/xlibs/f/fileio.cpp`), also nach `sdmc:/3ds/mausjagd/saves/`.
+  - **Diese .3dsx enthält das Spiel: nur für den eigenen Gebrauch, nicht weitergeben.** `dist/` ist ignoriert.
+- **SD-Karte** (mit eingebetteten Daten):
   ```
-  SD:\3ds\mausjagd\mausjagd.3dsx
-  SD:\3ds\mausjagd\game\          <- Inhalt von game\ (MAUSJAGD.EXE, SHARED.DXR, …)
-  SD:\3ds\mausjagd\scummvm.ini    (legt die App selbst an)
+  SD:\3ds\mausjagd\mausjagd.3dsx   <- enthält Programm und Spieldaten
+  SD:\3ds\mausjagd\scummvm.ini     (legt die App selbst an)
   SD:\3ds\mausjagd\scummvm.log
   SD:\3ds\mausjagd\saves\
   ```
+  Ohne eingebettete Daten (`EMBED_GAME=0`) kommt der Inhalt von `game\` nach `SD:\3ds\mausjagd\game\`.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

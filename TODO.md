@@ -162,6 +162,11 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
   → **Build erledigt** (2026-11-10): `bash scripts/build-3ds.sh` erzeugt `dist/3ds/scummvm.3dsx` (24,9 MB) aus dem unveränderten `upstream-base`. **Offen:** Starttest im Emulator oder auf echter Hardware.
 - [ ] **T4.3** Branch `mausjagd` für den 3DS bauen. `scripts/build-3ds.sh` erzeugt `dist/mausjagd.3dsx` reproduzierbar.
   *Fertig, wenn:* das Skript auf einem frischen Checkout durchläuft.
+  → **Weitgehend erledigt** (2026-11-10):
+    - `scripts/build-3ds.sh` erzeugt `dist/3ds/mausjagd.3dsx` aus dem Branch `mausjagd` mit den Patches 0001 und 0002.
+    - Das Spiel startet direkt, ohne Launcher. Die Spieldaten (442 Dateien, laut Inventar geprüft) stecken in der RomFS; die `.3dsx` ist 201 MB groß.
+    - Wunsch des Nutzers: "keinen Launcher", "Spieldateien in die 3dsx".
+    - **Offen:** Test auf dem Gerät, Lauf auf frischem Checkout.
 - [ ] **T4.4** Emulator-Test in Azahar: `game/` auf die virtuelle SD kopieren, das Spiel hinzufügen und Menü sowie ersten Raum starten. Danach die Matrix aus T3.4 als zweite Spalte "3DS-Emu" durchgehen.
   *Fertig, wenn:* die Spalte ausgefüllt ist.
 - [ ] **T4.5** Test auf echter Hardware (Freigabe und Hilfe des Nutzers nötig): New 3DS und, falls vorhanden, Old 3DS, per `3dslink` oder als CIA.

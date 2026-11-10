@@ -11,6 +11,11 @@
 #   JOBS          parallele Jobs, Standard nproc
 #   RECONFIGURE=1 configure erzwingen
 #   EXTRA_CONFIGURE  zusätzliche configure-Optionen
+#   EMBED_GAME    nur Port: 1 = Spieldaten in die RomFS der .3dsx (Standard), 0 = Daten auf der SD-Karte
+#   GAME_DIR      Spielordner, Standard <repo>/game
+#
+# Achtung: Mit EMBED_GAME=1 enthält die .3dsx das Spiel. Nur für den eigenen Gebrauch,
+# nicht weitergeben (dist/ ist ignoriert).
 set -euo pipefail
 
 SRC="${SCUMMVM_SRC:-$HOME/scummvm}"
@@ -54,9 +59,23 @@ if [ "${RECONFIGURE:-0}" = 1 ] || [ ! -f config.mk ]; then
     --disable-cloud --disable-libcurl ${EXTRA_CONFIGURE:-}
 fi
 make -j"$JOBS"
-# Titel/Beschreibung landen im SMDH; es neu erzeugen, falls sie sich geändert haben
-rm -f scummvm.smdh
-make scummvm.3dsx "${APP_VARS[@]}"
+
+ROMFS_VARS=()
+if [ "$PORT" = 1 ] && [ "${EMBED_GAME:-1}" = 1 ]; then
+  GAME_DIR="${GAME_DIR:-$REPO/game}"
+  STAGE="$BUILD/romfs-extra/game"
+  echo "=== Spieldaten laut docs/inventory.md nach $STAGE (geprüft)"
+  python3 -I "$REPO/scripts/stage_game_data.py" "$GAME_DIR" "$REPO/docs/inventory.md" "$STAGE"
+  ROMFS_VARS=(DIST_3DS_EXTRA_FILES="$STAGE")
+fi
+
+# RomFS und SMDH immer neu erzeugen: make sieht Änderungen in Unterordnern bzw. an
+# Titel/Beschreibung sonst nicht
+rm -rf romfs scummvm.smdh scummvm.3dsx
+make scummvm.3dsx "${APP_VARS[@]}" "${ROMFS_VARS[@]}"
+if [ ${#ROMFS_VARS[@]} -gt 0 ]; then
+  echo "RomFS-Spieldaten: $(find romfs/game -type f | wc -l) Dateien, $(du -sh romfs/game | cut -f1)"
+fi
 
 dist="$REPO/dist/3ds"
 mkdir -p "$dist"

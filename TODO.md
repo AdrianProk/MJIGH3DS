@@ -17,6 +17,7 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
    - **Azahar** darf der Agent selbst starten (Freigabe 2026-11-10), z. B. für Startmessungen ohne Eingaben: `scripts/azahar-run.ps1`. Bilder nur über dieses Skript (PrintWindow, nur das Azahar-Fenster), nie als Bildschirmausschnitt.
 6. **Freigaben:** Nur nach Rückfrage beim Nutzer: Commit/Push, Fork oder PR auf GitHub, Installation neuer Systemsoftware (WSL2, Docker, devkitPro), Tests auf echter 3DS-Hardware, Entscheidungen an den Gates G1/G2.
 7. **Patches:** Änderungen an ScummVM nur im Branch `mausjagd` des Forks vornehmen. Der Fork liegt seit WSL1 unter `~/scummvm` in Ubuntu, nicht mehr in `scummvm/` im Repo. Nach jeder abgeschlossenen Aufgabe mit Engine-Änderungen die Serie neu exportieren: `git -C ~/scummvm format-patch --no-signature upstream-base..mausjagd -o /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/patches/` (vorher alte `*.patch` löschen). Port-spezifischer Code steht hinter `#ifdef MAUSJAGD_PORT`.
+8. **Sicherheit:** Für jeden Patch gelten die Regeln aus PLAN.md §10: nur in den App-Ordner schreiben, keine unnötigen Systemdienste, Längen prüfen und Zeichenoperationen begrenzen, Fehler sauber behandeln. Vor jedem Test auf echter Hardware laufen S1 und S4 für die neuen Patches.
 
 ---
 
@@ -249,7 +250,14 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
 
 ## Phase 5: 3DS-Anpassung
 
-- [ ] **T5.1** Bildschirm-Layout nach PLAN.md §3 umsetzen: Das Spiel läuft auf dem unteren Bildschirm in 320×240 (Faktor 0,5). Der obere Bildschirm zeigt die Lupe, einen 1:1-Ausschnitt um den letzten Tippunkt mit sichtbarem Cursor. Zuerst prüfen, was das 3DS-Backend schon kann (Bildschirmwahl, Touch-Modus, Magnify), und es entsprechend konfigurieren. Fehlendes in `backends/platform/3ds/` ergänzen. Skalierungsfilter vergleichen (nächster Nachbar oder linear), Kriterium ist die Lesbarkeit. Screenshots nach `docs/screens/` legen; das sind eigene Aufnahmen und dürfen nicht öffentlich gepusht werden (Pfad bei Bedarf ignorieren).
+- [ ] **T5.1** Bildschirm-Layout nach PLAN.md §3 umsetzen. Das Spiel läuft auf dem unteren Bildschirm in 320×240 (Faktor 0,5). **Oberer Bildschirm** (Entscheidung des Nutzers, 2026-11-10):
+  - Bis zum Ende des Intros: Startbildschirm bzw. Spielbild.
+  - Danach die **Hotelkarte** `hotlpicdull.256` aus `GGMDMENU`, verkleinert auf 320×240.
+  - Der aktuelle Raum bekommt einen **blinkenden Rahmen** um sein Fenster. Die Klickflächen sind die Sprites 5–23 der Hotelübersicht; Feld `roomlist` ordnet sie zu, Zeile = Sprite − 4.
+  - Daneben steht der **Mäusezähler** aus `miceCaught`.
+  - Die Karte verrät nicht, wo die nächste Maus steckt.
+
+  Zuerst prüfen, was das 3DS-Backend schon kann (Bildschirmwahl, Touch-Modus), und es entsprechend konfigurieren; Fehlendes in `backends/platform/3ds/` bzw. der Director-Engine ergänzen. Skalierungsfilter vergleichen (nächster Nachbar oder linear), Kriterium ist die Lesbarkeit. Bilder kommen nach `dist/screens/`, weil sie Spielgrafik enthalten (ignoriert).
   *Fertig, wenn:* das Layout standardmäßig aktiv ist und die Entscheidungen zu Filter und Lupe in `docs/3ds-ux.md` stehen.
 - [ ] **T5.2** Direkte Touch-Eingabe umsetzen: Die Tippposition ist die Mausposition, kein Touchpad-Modus. Beim Aufsetzen springt der Zeiger auf die Tippposition, im selben Frame folgt `mouseDown`. Ziehen bewegt den Zeiger, Loslassen löst `mouseUp` an der letzten Position aus. Den Hover-Ersatz für `rollOver` laut T2.6 umsetzen; das gilt fürs Menü und vor allem für das **Mausometer** auf der Hotelübersicht, das man durch Ziehen über das Bild bewegt (siehe `docs/gameplay.md`). Den Cursor auf dem Touchscreen ausblenden. Tasten wie in PLAN.md §3 belegen, einschließlich der Tasten, die das Spiel abfragt. **Texteingabe:** Den Namen beim Speichern über die 3DS-Bildschirmtastatur eingeben; prüfen, ob das ScummVM-Backend sie schon anbietet.
   *Fertig, wenn:* ein Log des Debug-Kanals `events` für 10 Tipps zeigt, dass Klickposition und getroffenes Sprite stimmen, auch bei einer laufenden Maus. Das Mausometer lässt sich per Ziehen bedienen, und ein Spielstand mit Namen lässt sich speichern.
@@ -267,6 +275,47 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
   - **Merkposten** (2026-11-10): Ein fataler Fehler öffnet auf dem 3DS die Debugger-Konsole von ScummVM, eine Sackgasse ohne Tastatur. Prüfen, was der Spieler dann sieht und wie er beendet; gegebenenfalls im Port eine Meldung zeigen und sauber beenden.
   *Fertig, wenn:* alle Fälle in `docs/3ds-ux.md` als "ok" vermerkt sind.
 - [ ] **G2 Gate:** Dem Nutzer den Stand berichten: Lassen sich die Mäuse per Touch zuverlässig fangen (T5.4)? Ist das Spiel auf dem New 3DS **und** dem Old 3DS gut spielbar? Freigabe für das Packaging einholen.
+
+## Sicherheit (querschnittlich, PLAN.md §10)
+
+Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **vor jedem Test auf echter Hardware**, alle Aufgaben **vor dem Packaging** (Phase 6).
+
+- [ ] **S1** Patch-Review: Jeden eigenen Patch (`patches/`) gegen die Regeln aus PLAN.md §10 prüfen und das Ergebnis pro Patch in einer Checkliste festhalten. Prüfpunkte:
+  - Puffer und Längen
+  - begrenzte Zeichenoperationen
+  - Dateipfade
+  - Fehlerbehandlung
+  - Dienste
+  *Fertig, wenn:* die Checkliste für alle Patches vollständig ist und gefundene Mängel behoben sind.
+- [ ] **S2** Sanitizer: Den Linux-Desktop-Build mit `-fsanitize=address,undefined` bauen (eigener Build-Ordner) und ohne Fenster durchlaufen lassen:
+  - Start und Menü
+  - jeder Raum per `--start-movie` am Anfang und am Label `caught`
+  - Intro- und Hilfevideos
+  - `INSTRUM`, `ORCH`, `ATTIC`, `THEEND`, `CREDITS`
+
+  Funde in eigenem Code beheben, Funde in ScummVM dokumentieren und gegebenenfalls upstream melden (Freigabe nötig).
+  *Fertig, wenn:* alle Läufe ohne Sanitizer-Meldung in eigenem Code durchgehen.
+- [ ] **S3** Statische Analyse: Die geänderten Dateien mit `cppcheck` (bzw. `clang-tidy`) prüfen. Den 3DS-Build auf Warnungen in diesen Dateien durchsehen (`-Wall -Wextra`).
+  *Fertig, wenn:* keine offenen Befunde in eigenem Code bleiben.
+- [ ] **S4** Datei- und Dienstzugriffe:
+  - Im Code nachweisen, dass Konfiguration, Log, Spielstände und FileIO nur unter `sdmc:/3ds/mausjagd/` schreiben.
+  - In Azahar eine Spielsitzung mit Speichern fahren und den Inhalt der virtuellen SD vorher und nachher vergleichen: Nur der App-Ordner darf sich ändern.
+  - Prüfen, welche Systemdienste der Port tatsächlich initialisiert.
+  *Fertig, wenn:* keine Schreibzugriffe außerhalb des App-Ordners nachweisbar sind.
+- [ ] **S5** Fatale Fehler: Im Port statt der Debugger-Konsole eine verständliche Meldung zeigen und sauber beenden. Testfall: `--start-movie=ARTIST.DXR@1203` führt nach dem Video zu `Builtin 'getPos' did not return value`.
+  *Fertig, wenn:* der Testfall mit Meldung endet und die App sich zum HOME-Menü bzw. Homebrew Launcher beenden lässt.
+- [ ] **S6** Speicher, Stack und Datenintegrität:
+  - Spitzenverbrauch auf dem Old 3DS (zusammen mit T5.6).
+  - Verhalten bei fehlgeschlagener Speicheranforderung.
+  - Stackgröße (64 KB im Hauptthread; FreeType-Hinweis aus `docs/build-3ds.md`).
+  - Spielstand beim Abschalten während des Schreibens (zusammen mit T5.8).
+  *Fertig, wenn:* die Grenzen gemessen sind und kein Fall zu kaputten Spielständen oder Abstürzen ohne Meldung führt.
+- [ ] **S7** CIA-Rechte:
+  - Die RSF auf die nötigen Dienste kürzen; nicht nötig sind z. B. `am:net`, `http:C`, `soc:U`, `cam:u`, `mic:u`, `boss:U`, `nim:aoc`.
+  - Dateisystemzugriff nur `DirectSdmc`.
+  - Eigene Title-ID außerhalb der Systembereiche (mit T6.2/T6.3).
+  - Installieren und Deinstallieren zuerst im Emulator testen.
+  *Fertig, wenn:* das CIA mit den gekürzten Rechten läuft und sich rückstandsfrei deinstallieren lässt.
 
 ## Phase 6: Packaging
 
@@ -294,3 +343,4 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
 - [ ] **T7.1** Erkennungseintrag und Engine-Fixes als PR an `scummvm/scummvm` einreichen. Das ist nach außen wirksam und braucht eine Freigabe.
 - [ ] **T7.2** Die englische Version *The Great Green Mouse Disaster* unterstützen, falls vorhanden.
 - [ ] **T7.3** Den Mac-Teil einer Hybrid-CD unterstützen, falls eine solche vorliegt.
+- [ ] **T7.4** **Lupe** auf dem oberen Bildschirm (Idee des Nutzers, für später): ein 1:1-Ausschnitt der Originalgrafik um den letzten Tippunkt mit sichtbarem Cursor, z. B. solange eine Schultertaste gedrückt ist; sonst bleibt die Hotelkarte sichtbar. Ob die Lupe nötig ist, zeigt der Treffertest auf Hardware (T5.4).

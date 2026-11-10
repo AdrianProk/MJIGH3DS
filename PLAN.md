@@ -68,13 +68,13 @@ Daraus folgen drei Arbeitsfelder:
 | Touch-Modus | **Direkt:** Die Tippposition ist die Mausposition, kein Touchpad-Modus. Beim Aufsetzen springt der Zeiger zuerst auf die Tippposition, im selben Frame folgt `mouseDown`. Beim Loslassen folgt `mouseUp` an der letzten Position. So liefern `the mouseH`/`the mouseV`, `rollOver` und `the clickOn` auch bei kurz sichtbaren Mäusen die richtige Stelle. |
 | Treffhilfe | Eine Maus ist bei halber Auflösung klein und nur kurz zu sehen. Deshalb bekommt die Director-Engine eine **abschaltbare Treffhilfe:** Trifft ein Tipp keine Maus, sucht sie im Umkreis nach der nächsten sichtbaren Maus und lenkt den Klick auf sie um. Startwert für den Umkreis sind etwa 16 Spielpixel (= 8 Touch-Pixel); der endgültige Wert wird per Test abgestimmt. Die Hilfe gilt nur für Sprites, die laut T2.6 Mäuse sind. Alle anderen Klickflächen bleiben exakt, damit nichts versehentlich ausgelöst wird. |
 | Hover/Rollover | Touch hat kein Hover. `rollOver` wird mindestens im Menü (`GGMDMENU`) und auf der Dachboden-Karte (`ATTIC`, `rollovermap`) benutzt. Ersatz: Solange der Stift aufliegt und gezogen wird, folgt der Zeiger; Rollover-Effekte erscheinen also beim Ziehen. Die genaue Lösung hängt von der Skriptlogik ab (T2.6, T5.2). |
-| Cursor | Auf dem Touchscreen ausgeblendet, denn der Stift ist der Zeiger. In der Lupe oben ist er sichtbar. |
-| Oberer Bildschirm | **Lupe:** ein 1:1-Ausschnitt (400×240) der Originalgrafik um den letzten Tippunkt, für Details und Texte. Optional später: eine Anzeige der gefangenen Mäuse aus `miceCaught` (Phase 7). |
-| Tasten | Zusätzlich, für das Spielen ohne Stift: Circle Pad/Steuerkreuz = Zeiger, A = Klick, START = ScummVM-Menü, SELECT = Lupe an/aus. Falls das Spiel Tasten abfragt (`keyCode`, `commandDown`, `optionDown`), werden diese auf freie Tasten gelegt. |
+| Cursor | Auf dem Touchscreen ausgeblendet, denn der Stift ist der Zeiger. |
+| Oberer Bildschirm | **Hotelkarte** (Entscheidung des Nutzers, 2026-11-10): Ab dem Ende des Intros zeigt der obere Bildschirm die Hotelübersicht des Spiels (`hotlpicdull.256` aus `GGMDMENU`, auf 320×240 verkleinert). Der aktuelle Raum bekommt einen **blinkenden Rahmen** um sein Fenster, daneben steht ein **Mäusezähler** (`miceCaught`). Die Karte verrät nicht, wo die nächste Maus steckt; das bleibt Aufgabe des Mausometers. Vor dem Ende des Intros zeigt der obere Bildschirm den Startbildschirm bzw. das Spielbild. Umsetzung in T5.1. Die **Lupe** (1:1-Ausschnitt um den Tippunkt) ist ein optionales späteres Ziel (T7.4). |
+| Tasten | Zusätzlich, für das Spielen ohne Stift: Circle Pad/Steuerkreuz = Zeiger, A = Klick, START = ScummVM-Menü. Falls das Spiel Tasten abfragt (`keyCode`, `commandDown`, `optionDown`), werden diese auf freie Tasten gelegt. |
 | Start | Die App startet **direkt ins Spiel**: kein ScummVM-Launcher (umgesetzt) und **kein ScummVM-Dialog**, auch keine Warnung "nicht unterstützt". Ziel: spielbereit nach höchstens 10 s auf dem New 3DS. Die Pausen des Startbildschirms gehören zum Original und zählen nicht mit. |
 | Tipp-Feedback | Beim Antippen erscheinen **keine Artefakte** wie Rechtecke oder Zeigerreste. Erhalten bleibt nur, was das Original selbst anzeigt (z. B. Hervorhebungen, die das Spiel vorsieht). |
 
-Was das 3DS-Backend von ScummVM davon schon kann (Bildschirmwahl, Touch-Modus, Lupe), prüft T5.1. Fehlendes wird im Backend (`backends/platform/3ds/`) oder in der Director-Engine ergänzt. Beides wird als Patch nach `patches/` exportiert.
+Was das 3DS-Backend von ScummVM davon schon kann (Bildschirmwahl, Touch-Modus), prüft T5.1. Fehlendes wird im Backend (`backends/platform/3ds/`) oder in der Director-Engine ergänzt. Beides wird als Patch nach `patches/` exportiert.
 
 ---
 
@@ -110,7 +110,8 @@ MJIGH3DS/
 | 3 | ScummVM auf dem PC | Spiel läuft auf dem Desktop komplett durch |
 | **G1** | **Gate** | Ist das Spiel auf dem PC von Anfang bis Ende spielbar? Nein, mit grundlegenden Blockern → Nutzer fragen. |
 | 4 | 3DS-Build | ScummVM mit unserem Branch läuft im Emulator und auf echter Hardware; die Befunde aus dem ersten 3DS-Lauf (§9) sind behoben |
-| 5 | 3DS-Anpassung | Spiel auf dem Touchscreen, Mäuse per Antippen fangbar (mit Treffhilfe), Lupe oben, flüssige Videos, kein Speichermangel |
+| 5 | 3DS-Anpassung | Spiel auf dem Touchscreen, Mäuse per Antippen fangbar (mit Treffhilfe), Hotelkarte mit Mäusezähler oben, flüssige Videos, kein Speichermangel |
+| S | Sicherheit (querschnittlich, §10) | Eigene Patches geprüft, keine Schreibzugriffe außerhalb des App-Ordners, Speicherfehler mit Sanitizern gesucht, saubere Fehlerbehandlung; leichte Prüfung vor jedem Hardware-Test, vollständige vor dem Packaging |
 | **G2** | **Gate** | Lassen sich die Mäuse per Touch zuverlässig fangen? Ist es auf dem New 3DS **und** dem Old 3DS gut spielbar? |
 | 6 | Packaging | CIA/3DSX, die direkt ins Spiel startet, plus Endnutzer-README |
 | 7 | optional | Upstream-PR an ScummVM, englische Version |
@@ -176,7 +177,8 @@ MJIGH3DS/
 | Kein Referenzverhalten verfügbar: der 16-Bit-Projektor startet nicht unter Windows 10 x64 | Optional eine Win9x-VM (86Box/VirtualBox) oder ein Longplay-Video als Referenz |
 | Mäuse bei halber Auflösung zu klein oder zu kurz sichtbar zum Antippen | Treffhilfe mit Fangradius (§3), Trefferquote auf echter Hardware messen und den Radius abstimmen (T5.4) |
 | Das Spiel braucht Hover/Rollover, den Touch nicht liefert | In T2.6 klären; Ersatz durch Ziehen mit dem Stift (§3, T5.2) |
-| Schlechte Lesbarkeit bei 320×240 | Lupe auf dem oberen Bildschirm mit 1:1-Ausschnitt; Skalierungsfilter vergleichen (T5.1) |
+| Schlechte Lesbarkeit bei 320×240 | Skalierungsfilter vergleichen (T5.1); falls nötig die optionale Lupe auf dem oberen Bildschirm (T7.4) |
+| Absturz, Datenverlust oder Schaden am 3DS durch Fehler im Code (z. B. Pufferüberlauf) | Sicherheitsregeln und -prüfungen nach §10: nur der eigene App-Ordner wird beschrieben, keine Systemdienste, Sanitizer- und Code-Prüfungen, saubere Fehlerbehandlung, Prüfung vor jedem Hardware-Test |
 | Videos auf dem 3DS zu langsam | Auf echter Hardware messen; Optimierung oder notfalls vorab umkodierte Videos (nur als lokaler Konvertierungsschritt für den Nutzer, nicht im Repo) |
 | Speichermangel oder Ruckeln auf dem Old 3DS | Früh auf Old-3DS-Bedingungen testen (Azahar ohne New-3DS-Modus und mit gedrosseltem CPU-Takt, sonst echte Hardware); Speicher und Bildrate messen (T5.5/T5.6); gezielt optimieren (T5.7). Fürs CIA mehr Speicher anfordern (`SystemMode` 80 MB) |
 | `LINGO.INI`-Pfade (`D:\`) oder CD-Prüfungen | Prüfen, wie ScummVM `LINGO.INI` und Laufwerkspfade behandelt; bei Bedarf ein Quirk. Die Anforderungen stehen in `docs/dependencies.md` |
@@ -231,3 +233,26 @@ MJIGH3DS/
    - Port-spezifisches steht hinter `#ifdef MAUSJAGD_PORT`.
    - Spielspezifisches kommt als Quirk in `engines/director/game-quirks.cpp`.
    - Jeder Fix wird als Patch exportiert (Regel 7) und in `docs/compat-log.md` mit Vorher/Nachher eingetragen.
+
+---
+
+## 10. Sicherheit und Robustheit (Wunsch des Nutzers, 2026-11-10)
+
+**Ziel:** Der Port darf weder den 3DS beschädigen noch Daten auf der SD-Karte zerstören, und Fehler sollen den Spieler nicht in einer Sackgasse zurücklassen.
+
+**Einordnung der Risiken:**
+- Die App läuft als normale Anwendung im Benutzermodus des 3DS-Systems. Ein Pufferüberlauf oder ein anderer Speicherfehler führt typischerweise zu einem Absturz oder Einfrieren; dann hilft langes Drücken der Power-Taste.
+- Ein **Brick** entsteht nicht durch einen Absturz, sondern durch Schreibzugriffe auf den internen Speicher (NAND), die Firmware oder Systemtitel bzw. durch eine fehlerhafte CIA-Installation. Das ist für den Port sehr unwahrscheinlich, weil er solche Dienste nie aufruft. Wir schließen es durch Regeln und Prüfungen aus, statt uns darauf zu verlassen.
+- Realistischer sind: **Datenverlust auf der SD-Karte** durch falsche Pfade, ein Spielstand, der beim Abschalten mitten im Schreiben kaputtgeht, ein **Speichermangel** auf dem Old 3DS sowie **fatale Fehler**, die die Debugger-Konsole von ScummVM öffnen (ohne Tastatur eine Sackgasse).
+
+**Regeln für den eigenen Code** (Patches im Fork):
+1. **Nur der App-Ordner:** Geschrieben wird nur unter `sdmc:/3ds/mausjagd/`. Kein Zugriff auf NAND-Archive, Systemspeicher oder fremde Ordner.
+2. **Keine Systemdienste** außer denen, die Grafik, Ton, Eingabe, Dateisystem und Energieverwaltung brauchen. Für das CIA wird die RSF auf das Nötige gekürzt. Die Vorlage von ScummVM fordert unter anderem `am:net` (Titel installieren), `http:C`, `soc:U`, `cam:u` und `mic:u` an. Dazu kommt eine eigene Title-ID außerhalb der Systembereiche (T6.2).
+3. **Speichersicherheit:** Keine Puffer fester Größe ohne Längenprüfung; `Common::String`/`Common::Array` statt C-Arrays; alle Zeichenoperationen auf die Zielfläche begrenzen (clippen). Daten aus Spieldateien gelten als nicht vertrauenswürdig.
+4. **Fehler sichtbar und sauber beenden:** Ein fataler Fehler zeigt im Port eine verständliche Meldung und beendet die App zum HOME-Menü bzw. Homebrew Launcher, statt die Debugger-Konsole zu öffnen.
+5. **Keine Eingriffe in die Hardware** über das hinaus, was das System selbst anbietet: nur der offizielle Taktmodus des New 3DS (`osSetSpeedupEnable`); die Hintergrundbeleuchtung wird beim Beenden wiederhergestellt.
+
+**Prüfungen** (Aufgaben S1–S7 in der TODO):
+- **Vor jedem Test auf echter Hardware** eine leichte Prüfung der neuen Patches (S1, S4).
+- **Vor dem Packaging (Phase 6)** alle Prüfungen.
+- Die Ergebnisse stehen in `docs/security.md`.

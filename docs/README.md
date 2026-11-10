@@ -20,4 +20,5 @@ Befunde, Protokolle und Build-Doku des Projekts. Sie enthalten nur Metadaten und
 | `build-3ds.md` | 3DS-Toolchain und -Build | T4.1 ff. |
 | `3ds-ux.md` | Bildschirm-Layout, Touch, Treffhilfe, Systemverhalten | T5.1 ff. |
 | `performance.md` | Messwerte und Optimierungen | T4.8, T5.5 ff. |
+| `security.md` | Sicherheitsprüfungen: Patch-Review, Sanitizer, Datei- und Dienstzugriffe, CIA-Rechte (PLAN.md §10) | S1–S7 |
 | `blockers.md` | Offene Blocker mit Lösungsversuchen | bei Bedarf |

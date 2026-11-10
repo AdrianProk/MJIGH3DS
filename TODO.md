@@ -189,12 +189,12 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 - [ ] **T5.5** Performance messen auf New 3DS und Old 3DS: Bildrate in Räumen, Eingabelatenz in Fangräumen (vom Tippen bis zur Reaktion), Videos (besonders `ENDSEQ.MOV` und `GERINTRO.MOV`), Aussetzer im Ton. Ergebnis in `docs/performance.md`.
   *Fertig, wenn:* zu jedem Video und jedem Raum ein Messwert vorliegt.
 - [ ] **T5.6** Speicher messen: Spitzenverbrauch beim Filmwechsel und bei großen Casts (`ATTIC.DXR` mit 3,8 MB). 3DSX über Title-Takeover und CIA vergleichen, dazu den erweiterten Speichermodus des New 3DS.
-  *Fertig, wenn:* es keinen Out-of-Memory auf dem New 3DS gibt und der Old-3DS-Status dokumentiert ist.
+  *Fertig, wenn:* es weder auf dem New 3DS noch auf dem Old 3DS einen Out-of-Memory gibt. Seit 2026-11-10 ist der Old 3DS gleichwertige Zielplattform (Wunsch des Nutzers, PLAN.md §6).
 - [ ] **T5.7** Optimieren, nur wenn T5.5 oder T5.6 Probleme zeigen: Profiling zuerst, dann gezielt. Kandidaten: SMC-Decoder, Palettenkonvertierung, Dirty Rects, Musikvariante mit 8 Bit, Takt des New 3DS. Jede Optimierung mit Vorher/Nachher-Messwert in `docs/performance.md`.
-  *Fertig, wenn:* die Messwerte das Ziel des New 3DS erreichen (flüssige Räume, Videos ohne störendes Ruckeln, kein Ton-Stottern).
+  *Fertig, wenn:* die Messwerte auf **beiden** Modellen das Ziel erreichen: flüssige Räume, Videos ohne störendes Ruckeln, kein Ton-Stottern. Modellabhängige Einstellungen nur, wenn die Messung sie verlangt (Erkennung per `APT_CheckNew3DS()`).
 - [ ] **T5.8** Systemverhalten: HOME-Taste, Deckel zu/auf (Sleep), Power-Taste und Beenden über das ScummVM-Menü dürfen weder Ton noch Spielstand kaputt machen.
   *Fertig, wenn:* alle Fälle in `docs/3ds-ux.md` als "ok" vermerkt sind.
-- [ ] **G2 Gate:** Dem Nutzer den Stand berichten: Lassen sich die Mäuse per Touch zuverlässig fangen (T5.4)? Ist das Spiel auf dem New 3DS gut spielbar, und wie steht es um den Old 3DS? Freigabe für das Packaging einholen.
+- [ ] **G2 Gate:** Dem Nutzer den Stand berichten: Lassen sich die Mäuse per Touch zuverlässig fangen (T5.4)? Ist das Spiel auf dem New 3DS **und** dem Old 3DS gut spielbar? Freigabe für das Packaging einholen.
 
 ## Phase 6: Packaging
 

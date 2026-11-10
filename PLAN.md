@@ -109,7 +109,7 @@ MJIGH3DS/
 | **G1** | **Gate** | Ist das Spiel auf dem PC von Anfang bis Ende spielbar? Nein, mit grundlegenden Blockern → Nutzer fragen. |
 | 4 | 3DS-Build | ScummVM mit unserem Branch läuft im Emulator und auf echter Hardware |
 | 5 | 3DS-Anpassung | Spiel auf dem Touchscreen, Mäuse per Antippen fangbar (mit Treffhilfe), Lupe oben, flüssige Videos, kein Speichermangel |
-| **G2** | **Gate** | Lassen sich die Mäuse per Touch zuverlässig fangen? Ist es auf dem New 3DS gut spielbar? Status des Old 3DS ist dokumentiert. |
+| **G2** | **Gate** | Lassen sich die Mäuse per Touch zuverlässig fangen? Ist es auf dem New 3DS **und** dem Old 3DS gut spielbar? |
 | 6 | Packaging | CIA/3DSX, die direkt ins Spiel startet, plus Endnutzer-README |
 | 7 | optional | Upstream-PR an ScummVM, englische Version |
 
@@ -134,10 +134,21 @@ MJIGH3DS/
 **Hardware-Grenzen:**
 
 - Unterer Bildschirm 320×240 (Touch), oberer 400×240. Das Spiel läuft unten in genau halber Auflösung, oben ist die Lupe (siehe §3). Lesbarkeit und Treffsicherheit beim Antippen sind das Hauptthema.
-- Old 3DS: 268 MHz und ca. 64 MB App-Speicher. New 3DS: 804 MHz und mehr Speicher. **Zielplattform ist der New 3DS.** Der Old 3DS ist Best Effort mit dokumentiertem Status.
+- Old 3DS: 268 MHz und ca. 64 MB App-Speicher. New 3DS: 804 MHz und mehr Speicher. **Zielplattformen sind der New 3DS und der Old 3DS** (Wunsch des Nutzers, 2026-11-10). Es gibt **eine** `.3dsx` für beide; Unterschiede werden zur Laufzeit erkannt, nicht über getrennte Builds.
+  - **Was das 3DS-Backend von ScummVM schon erkennt:**
+    - Speicherlayout: `allocHeapsOverride.cpp` liest `APPMEMTYPE`, Layouts 0–5 = Old, 6–8 = New. Der Linear-Heap ist 10 bzw. 20 MB, der Rest geht an den normalen Heap.
+    - Turbo: `osSetSpeedupEnable(true)` bringt 804 MHz und L2-Cache auf dem New 3DS und ist auf dem Old 3DS wirkungslos.
+    - Breiter oberer Bildschirm: aus auf dem alten 2DS (`gfxSetWide`).
+    - ZL/ZR/C-Stick nur auf dem New 3DS, für das Spiel optional.
+  - **Engpässe auf dem Old 3DS** sind vor allem die Rechenzeit (Videos, Palettenkonvertierung) und knapper Speicher. Die eingebetteten Spieldaten in der RomFS belegen keinen Arbeitsspeicher.
+  - Optimierungen gelten für beide Modelle. Modellabhängige Einstellungen (z. B. Videoqualität) nur, wenn Messungen sie nötig machen; Erkennung dann per `APT_CheckNew3DS()`.
 - Mögliche Performance-Engpässe: SMC-Videodekodierung in voller Auflösung, Konvertierung der 8-Bit-Palette, Audio-Resampling. Als Hebel gibt es die 8-Bit-Musik in `MUSIC8/` und `SOLOS8/`, die das Spiel über `gCPU` offenbar selbst auswählt; das ist zu prüfen.
 
-**Autostart (Phase 6):** eine vorkonfigurierte `scummvm.ini` mit dem Spieleintrag und dem Spielpfad auf der SD-Karte, z. B. `sdmc:/3ds/mausjagd/game/`. Dazu ein Direktstart, etwa über eine `scummvm-autorun`-Datei; ob ScummVM das unterstützt, ist zu prüfen. Die App bekommt eine eigene Title-ID sowie ein selbst gestaltetes Icon und Banner.
+**Autostart:** **umgesetzt** (2026-11-10, Patches 0001/0002, siehe `docs/build-3ds.md`).
+- Der Port-Modus `MAUSJAGD_PORT` startet ohne Launcher direkt `director:ggmd`.
+- Die Spieldaten kommen aus der RomFS der `.3dsx`, ersatzweise aus `sdmc:/3ds/mausjagd/game`. Konfiguration, Log und Spielstände liegen in `sdmc:/3ds/mausjagd/`.
+- Eine `scummvm-autorun`-Datei unterstützt ScummVM nicht.
+- Für Phase 6 bleiben eine eigene Title-ID sowie ein selbst gestaltetes Icon und Banner.
 
 ---
 
@@ -160,6 +171,6 @@ MJIGH3DS/
 | Das Spiel braucht Hover/Rollover, den Touch nicht liefert | In T2.6 klären; Ersatz durch Ziehen mit dem Stift (§3, T5.2) |
 | Schlechte Lesbarkeit bei 320×240 | Lupe auf dem oberen Bildschirm mit 1:1-Ausschnitt; Skalierungsfilter vergleichen (T5.1) |
 | Videos auf dem 3DS zu langsam | Auf echter Hardware messen; Optimierung oder notfalls vorab umkodierte Videos (nur als lokaler Konvertierungsschritt für den Nutzer, nicht im Repo) |
-| Speichermangel auf dem Old 3DS | Speicher messen; New 3DS als Ziel, Old 3DS als Best Effort |
+| Speichermangel oder Ruckeln auf dem Old 3DS | Früh auf Old-3DS-Bedingungen testen (Azahar ohne New-3DS-Modus und mit gedrosseltem CPU-Takt, sonst echte Hardware); Speicher und Bildrate messen (T5.5/T5.6); gezielt optimieren (T5.7). Fürs CIA mehr Speicher anfordern (`SystemMode` 80 MB) |
 | `LINGO.INI`-Pfade (`D:\`) oder CD-Prüfungen | Prüfen, wie ScummVM `LINGO.INI` und Laufwerkspfade behandelt; bei Bedarf ein Quirk. Die Anforderungen stehen in `docs/dependencies.md` |
 | Warteschleifen in Lingo (`wait` über `the timer`, leere Zählschleifen, `the mouseDown`/`the soundBusy`/`the movieRate` innerhalb von Schleifen) | Gezielt in T3.4 testen (Fallen, Hilfe des Katers, Raumstart). Bei Hängern die Event-Verarbeitung in der Engine nachbessern |

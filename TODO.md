@@ -252,6 +252,10 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - **Zeichnen:** Die Leerlauf-Animationen kosteten 123–185 ms pro Zeichendurchgang (Patches 0012–0014).
     - **Jetzt:** 11 ms pro Durchgang, SNOOKER läuft mit 12 fps und farbtreu. Messwerte in `docs/performance.md`.
     - **Offen:** Rückmeldung aus dem echten Spiel (alle Räume) und der Old 3DS.
+  → **Alle Räume geprüft** (2026-11-11):
+    - Score-Prüfung aller 27 Filme auf Verweise ins Leere: nur SNOOKER betroffen, dazu harmlose Lücken in PLUMBER und ORCH (`docs/compat-log.md`).
+    - Leistungsmessung aller 19 Räume im Emulator (`docs/performance.md`): kein Dauer-Engpass, kein Dithering.
+    - Ruckler beim ersten Erscheinen großer Matte-Bilder mit Patch 0015 gemildert (SLOBS 132 → 48 ms).
 
 ## Phase 5: 3DS-Anpassung
 
@@ -283,7 +287,11 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
   *Fertig, wenn:* zu jedem Video und jedem Raum ein Messwert vorliegt.
 - [ ] **T5.6** Speicher messen: Spitzenverbrauch beim Filmwechsel und bei großen Casts (`ATTIC.DXR` mit 3,8 MB). 3DSX über Title-Takeover und CIA vergleichen, dazu den erweiterten Speichermodus des New 3DS.
   *Fertig, wenn:* es weder auf dem New 3DS noch auf dem Old 3DS einen Out-of-Memory gibt. Seit 2026-11-10 ist der Old 3DS gleichwertige Zielplattform (Wunsch des Nutzers, PLAN.md §6).
-- [ ] **T5.7** Optimieren, nur wenn T5.5 oder T5.6 Probleme zeigen: Profiling zuerst, dann gezielt. Kandidaten: SMC-Decoder, Palettenkonvertierung, Dirty Rects, Musikvariante mit 8 Bit, Takt des New 3DS. Jede Optimierung mit Vorher/Nachher-Messwert in `docs/performance.md`.
+- [ ] **T5.7** Optimieren, nur wenn T5.5 oder T5.6 Probleme zeigen. Bekannte Kandidaten aus der Raumprüfung 2026-11-11 (`docs/performance.md`):
+  - erste Matte-Masken großer Bilder (SLOBS 48 ms auf dem New 3DS, auf dem Old 3DS geschätzt 150 ms): Zeilen-Flutfüllung oder Masken beim Laden des Raums;
+  - `MacWindow::draw()` kopiert bei jeder Änderung das ganze Fenster.
+
+  Allgemein: Profiling zuerst, dann gezielt. Kandidaten: SMC-Decoder, Palettenkonvertierung, Dirty Rects, Musikvariante mit 8 Bit, Takt des New 3DS. Jede Optimierung mit Vorher/Nachher-Messwert in `docs/performance.md`.
   *Fertig, wenn:* die Messwerte auf **beiden** Modellen das Ziel erreichen: flüssige Räume, Videos ohne störendes Ruckeln, kein Ton-Stottern. Modellabhängige Einstellungen nur, wenn die Messung sie verlangt (Erkennung per `APT_CheckNew3DS()`).
 - [ ] **T5.8** Systemverhalten: HOME-Taste, Deckel zu/auf (Sleep), Power-Taste und Beenden über das ScummVM-Menü dürfen weder Ton noch Spielstand kaputt machen.
   - **Merkposten** (2026-11-10): Ein fataler Fehler öffnet auf dem 3DS die Debugger-Konsole von ScummVM, eine Sackgasse ohne Tastatur. Prüfen, was der Spieler dann sieht und wie er beendet; gegebenenfalls im Port eine Meldung zeigen und sauber beenden.

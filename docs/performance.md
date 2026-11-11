@@ -8,6 +8,62 @@ Messwerte zu Startzeit, Bildrate und Speicher. Neueste Einträge oben. Werte aus
 - **Automatischer Lauf im Emulator:** `scripts/azahar-run.ps1` startet Azahar mit der `.3dsx`, wartet auf zwei Log-Marken, nimmt je ein Bild des Azahar-Fensters auf (nach `dist/screens/`) und beendet Azahar wieder. Die ausgegebenen Zeiten sind Wanduhr-Zeiten ab dem Start von Azahar, also einschließlich des Emulatorstarts (etwa 2,5 s).
 - **Desktop zum Vergleich:** eigener Linux-Build ohne Fenster (`docs/build-desktop.md`).
 
+## Alle Räume: Zeichendauer im Emulator (2026-11-11, Azahar 2126.2, Fork `2284a3dad0` bzw. `323930ffc4`)
+
+**Verfahren:** Messreihe mit 63 automatischen Läufen (Skript im Scratchpad, Muster wie `scripts/azahar-run.ps1`). Jeder Raum wurde dreimal gemessen, jeweils mit `--debuglevel=7 --debugflags=images`:
+- **start:** ab Frame 1 für 35 s; das sind Raumstart und Leerlauf-Animationen.
+- **a1:** ab der ersten Versteck-Animation für 12 s.
+- **ma:** ab dem ersten Mauslauf für 12 s.
+
+Ausgewertet wurde `Window::render(): Draw cycle finished in N ms`. Das Budget bei 12 fps beträgt 83 ms pro Frame. Die Werte enthalten den Aufwand fürs Loggen und liegen deshalb eher zu hoch.
+
+| Raum | start Ø / 95 % | a1 95 % | ma 95 % |
+|---|---:|---:|---:|
+| ARTIST | 10 / 42 → **18** | 49 | 49 |
+| BALLROOM | 18 / 19 | 19 | 19 |
+| BAR | 13 / 13 | 13 | 13 |
+| BATHROOM | 8 / 9 | 9 | 9 |
+| BUSINESS | 8 / 9 | 11 | 11 |
+| DINING | 17 / 18 | 18 | 18 |
+| EXERCISE | 8 / 8 | 15 | 16 |
+| FARMER | 6 / 7 | 6 | 8 |
+| KITCHEN | 7 / 27 → **12** | 30 | 31 |
+| LIBRARY | 7 / 10 → **8** | 16 | 17 |
+| MADSCI | 6 / 5 | 33 → **11** | 19 |
+| NEWLYWED | 3 / 3 | 3 | 3 |
+| PLAYROOM | 13 / 14 | 14 | 14 |
+| PLUMBER | 7 / 7 | 7 | 7 |
+| PRESBED | 8 / 9 | 8 | 9 |
+| PRESLIV | 4 / 4 | 4 | 6 |
+| SLOBS | 11 / 11 | 135 → **45** | 136 → **45** |
+| SNOOKER | 12 / 17 | 18 | 12 |
+| WITCHES | 10 / 11 | 11 | 11 |
+
+(Pfeil: neu gemessen nach Patch 0015.)
+
+- **Übrige Filme:**
+  - CREDITS: 3 / 5 ms.
+  - EXIT: 4 / 5 ms, ein einzelner Durchgang mit 220 ms beim Aufbau.
+  - THEEND: `ENDSEQ.MOV` mit 8 fps, der Video-Rate.
+  - ATTIC wartet ab Frame 1 auf eine Eingabe.
+  - INSTRUM und ORCH brechen beim Direkteinstieg mit einem Lingo-Fehler ab, weil Variablen aus dem normalen Ablauf fehlen (z. B. die Instrumentenliste). Sie müssen im echten Ablauf geprüft werden.
+- **Palette:** In keinem Raum rechnet die Engine Bitmaps in eine andere Palette um (null Dithering-Meldungen). Ein Rauschen wie in SNOOKER ist sonst ausgeschlossen.
+- **Befund "erste Maske":**
+  - Fast alle Ausreißer stammen aus Durchgängen, in denen ein Bitmap mit Matte-Ink **zum ersten Mal** gezeichnet wird. Dann berechnet `BitmapCastMember::createMatte()` die Maske per Flutfüllung; danach liegt sie im Speicher.
+  - Ohne neue Maske lagen alle gemessenen Räume im Mittel bei 4–8 ms, maximal 11 ms.
+  - `Graphics::FloodFill` legte für jedes gefüllte Pixel einen Punkt per `new` in einer verketteten Liste an.
+  - **Patch 0015** nimmt dafür ein Array; Reihenfolge und Ergebnis bleiben gleich.
+
+  | Durchgänge mit neuer Maske | vorher | nachher |
+  |---|---:|---:|
+  | SLOBS a1 / ma | Ø 132 / 137 ms | **Ø 48 / 53 ms** |
+  | ARTIST start | Ø 45 ms | **Ø 20 ms** |
+  | MADSCI a1 | Ø 40 ms | **Ø 18 ms** |
+  | LIBRARY start | Ø 27 ms | **Ø 14 ms** |
+  | KITCHEN start | Ø 20 ms | **Ø 10 ms** |
+
+- **Einordnung:** Auf dem New 3DS (Emulator) bleibt damit auch der erste Durchlauf jeder Animation unter dem Budget. Für den **Old 3DS** (etwa dreimal langsamer) wären die ersten Bilder in SLOBS mit rund 150 ms wieder zu langsam. Mögliche Abhilfen für T5.7: eine Zeilen-Flutfüllung (scanline) oder Masken schon beim Laden des Raums berechnen.
+
 ## T4.12 – Raumanimationen in SNOOKER: 5 fps und Farbrauschen (2026-11-11, Azahar 2126.2)
 
 **Befund des Nutzers:**

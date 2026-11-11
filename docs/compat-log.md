@@ -4,6 +4,35 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-11 – Alle Räume durchgeprüft: Verweise ins Leere (Agent, statisch)
+
+- **Wunsch des Nutzers:** alle Räume auf Fehler wie in SNOOKER durchgehen.
+- **Werkzeug:** `tools/scummvm-test-patches/score-lint.patch` (nur Testbranch `lint-tmp`, nicht im Port). Es prüft nach dem Laden eines Films **jeden Frame** des Scores und alle Film-Loops: Palettenkanal, beide Sounds, Frame-Skript, Übergang, Cast-Member und Skripte aller Sprite-Kanäle. So werden auch Animationen erfasst, die erst auf Klick laufen.
+- **Umfang:** alle 27 Filme (19 Räume, GGMDMENU, INSTRUM, ORCH, ATTIC, THEEND, CREDITS, EXIT, Startfilm), zusammen über 30.000 Frames und 60 Film-Loops.
+- **Ergebnis:**
+
+  | Film | Fund | Frames | Bewertung |
+  |---|---|---|---|
+  | SNOOKER | Palette 301 und Bitmap 302 fehlen (Kanal 4) | 26 | bekannt; der Palettenfix (Patch 0011) greift, das fehlende Bitmap wird wie in Director nicht gezeichnet |
+  | PLUMBER | Sprite-Skript 226 fehlt (Kanal 4) | 738 | harmlos: Ein Klick auf dieses Sprite löst in diesem Frame nichts aus |
+  | ORCH | Kanal 27 verweist auf die Bitmaps 102–122 (Ink 36) | 38–58 | Die Member fehlen in der Datei selbst (ORCH hat 100–101 "MOUSE CON .11/.12", dann erst wieder 123+; ProjectorRays sieht dieselbe Lücke). Director zeichnet fehlende Member nicht, ScummVM ebenso. Kein Engine-Fehler |
+
+  Alle übrigen 24 Filme: keine Verweise ins Leere. **Eine gelöschte Palette wie in SNOOKER gibt es sonst nirgends.**
+
+### 2026-11-11 – Alle Räume durchgeprüft: Leistung im Emulator (Agent)
+
+- **Messreihe:** 63 Läufe in Azahar: jeder Raum ab Frame 1, ab der ersten Versteck-Animation und ab dem ersten Mauslauf, dazu INSTRUM, ORCH, ATTIC, CREDITS, EXIT, THEEND. Tabelle in `docs/performance.md`.
+- **Ergebnis:**
+  - Kein Raum hat einen Dauer-Engpass wie zuvor SNOOKER; das normale Zeichnen dauert überall 3–18 ms.
+  - Nirgends werden Bitmaps in eine andere Palette umgerechnet, also gibt es kein Rauschen.
+- **Gefunden und behoben:** Ruckler beim **ersten** Erscheinen großer Matte-Bilder. Am stärksten war SLOBS mit 132 ms pro Bild, weil `Graphics::FloodFill` pro Pixel Speicher anforderte. Patch 0015 senkt das auf 48 ms, damit bleibt der erste Durchlauf auf dem New 3DS im Budget.
+- **Im echten Ablauf noch zu prüfen:**
+  - INSTRUM und ORCH; der Direkteinstieg bricht dort wegen fehlender Variablen ab.
+  - Das Hilfevideo des Katers (Suchpfad `GERHELP`).
+  - Der Old 3DS (Hardware).
+
+### 2026-11-11 – SNOOKER: Farbrauschen und 5 fps behoben (B1/B2, Agent)
+
 ### 2026-11-11 – SNOOKER: Farbrauschen und 5 fps behoben (B1/B2, Agent)
 
 - **Nutzer:**

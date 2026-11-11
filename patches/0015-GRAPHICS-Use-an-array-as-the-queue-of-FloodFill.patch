@@ -1,0 +1,111 @@
+From 323930ffc4ebcae719831f95a15d1d03aeafaa45 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 16:48:05 +0100
+Subject: [PATCH 15/15] GRAPHICS: Use an array as the queue of FloodFill
+
+FloodFill allocated a Common::Point for every filled pixel and kept it
+in a linked list. A fill can visit every pixel of the surface, so this
+meant tens of thousands of allocations per fill. Keep the points in an
+array with a read index instead. The order (first in, first out) and
+the result stay the same.
+
+Director creates the matte of every bitmap with matte ink this way the
+first time it is drawn. On the 3DS (emulator), the first draw of an
+animation frame of the room SLOBS in The Great Green Mouse Disaster
+went from 132 ms to 48 ms.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ graphics/surface.cpp | 33 ++++++++++++---------------------
+ graphics/surface.h   |  7 ++++++-
+ 2 files changed, 18 insertions(+), 22 deletions(-)
+
+diff --git a/graphics/surface.cpp b/graphics/surface.cpp
+index e6bd8c0424..76267a149e 100644
+--- a/graphics/surface.cpp
++++ b/graphics/surface.cpp
+@@ -1049,6 +1049,7 @@ FloodFill::FloodFill(Graphics::Surface *surface, uint32 oldColor, uint32 fillCol
+ 
+ 	_mask = nullptr;
+ 	_maskMode = maskMode;
++	_queueHead = 0;
+ 
+ 	if (_maskMode) {
+ 		_mask = new Graphics::Surface();
+@@ -1059,13 +1060,6 @@ FloodFill::FloodFill(Graphics::Surface *surface, uint32 oldColor, uint32 fillCol
+ }
+ 
+ FloodFill::~FloodFill() {
+-	while(!_queue.empty()) {
+-		Common::Point *p = _queue.front();
+-
+-		delete p;
+-		_queue.pop_front();
+-	}
+-
+ 	free(_visited);
+ 
+ 	if (_mask) {
+@@ -1114,26 +1108,23 @@ void FloodFill::addSeed(int x, int y) {
+ 				error("Unsupported bpp in FloodFill, got %d", _surface->format.bytesPerPixel);
+ 			}
+ 
+-			if (changed) {
+-				Common::Point *pt = new Common::Point(x, y);
+-
+-				_queue.push_back(pt);
+-			}
++			if (changed)
++				_queue.push_back(Common::Point(x, y));
+ 		}
+ 	}
+ }
+ 
+ void FloodFill::fill() {
+-	while (!_queue.empty()) {
+-		Common::Point *p = _queue.front();
+-		_queue.pop_front();
+-		addSeed(p->x    , p->y - 1);
+-		addSeed(p->x - 1, p->y    );
+-		addSeed(p->x    , p->y + 1);
+-		addSeed(p->x + 1, p->y    );
+-
+-		delete p;
++	while (_queueHead < _queue.size()) {
++		// Copy the point: addSeed() may grow the array and move its contents
++		const Common::Point p = _queue[_queueHead++];
++		addSeed(p.x    , p.y - 1);
++		addSeed(p.x - 1, p.y    );
++		addSeed(p.x    , p.y + 1);
++		addSeed(p.x + 1, p.y    );
+ 	}
++	_queue.clear();
++	_queueHead = 0;
+ }
+ 
+ void FloodFill::fillMask() {
+diff --git a/graphics/surface.h b/graphics/surface.h
+index 84ed3a4682..c468506f48 100644
+--- a/graphics/surface.h
++++ b/graphics/surface.h
+@@ -24,6 +24,7 @@
+ 
+ #include "common/scummsys.h"
+ #include "common/endian.h"
++#include "common/array.h"
+ #include "common/list.h"
+ 
+ namespace Common {
+@@ -673,7 +674,11 @@ public:
+ 	Surface *getMask() { return _mask; }
+ 
+ private:
+-	Common::List<Common::Point *> _queue;
++	// Pixels still to process, first in first out; _queueHead is the next one.
++	// An array instead of a list of allocated points: a fill visits up to every
++	// pixel of the surface, and one allocation per pixel is slow.
++	Common::Array<Common::Point> _queue;
++	uint _queueHead;
+ 	Surface *_surface;
+ 	Surface *_mask;
+ 	uint32 _oldColor, _fillColor;

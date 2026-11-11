@@ -1,7 +1,7 @@
 From a3611a4efe6ab702aa5a8d1f271e7763d090bb4a Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 18:03:16 +0100
-Subject: [PATCH 01/14] =?UTF-8?q?3DS:=20Add=20standalone=20M=C3=A4usejagd?=
+Subject: [PATCH 01/15] =?UTF-8?q?3DS:=20Add=20standalone=20M=C3=A4usejagd?=
  =?UTF-8?q?=20build=20mode=20(MAUSJAGD=5FPORT)?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

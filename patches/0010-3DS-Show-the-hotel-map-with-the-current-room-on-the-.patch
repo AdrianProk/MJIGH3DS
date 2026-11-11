@@ -1,7 +1,7 @@
 From 1ab81ca9da7160065d274ae58f574e78b94d5f04 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 05:42:31 +0100
-Subject: [PATCH 10/14] 3DS: Show the hotel map with the current room on the
+Subject: [PATCH 10/15] 3DS: Show the hotel map with the current room on the
  top screen (MAUSJAGD_PORT)
 
 Standalone build of "Mausejagd im Grandhotel": once the game has shown

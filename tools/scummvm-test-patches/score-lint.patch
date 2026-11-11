@@ -1,0 +1,117 @@
+From 6f75079fe56db2689cca64d744b8f2c3d3eb5039 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 06:22:34 +0100
+Subject: [PATCH] TEMPORARY lint (not for the port)
+
+---
+ engines/director/window.cpp | 90 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
+
+diff --git a/engines/director/window.cpp b/engines/director/window.cpp
+index 8ad538be55..8b37bc73ce 100644
+--- a/engines/director/window.cpp
++++ b/engines/director/window.cpp
+@@ -42,6 +42,89 @@
+ #include "director/debugger/debugtools.h"
+ #include "graphics/managed_surface.h"
+ 
++
++// ---- TEMPORARY lint (branch lint-tmp, not for the port) ----
++#include "common/config-manager.h"
++#include "director/castmember/filmloop.h"
++#include "director/cast.h"
++#include "director/frame.h"
++#include "director/movie.h"
++#include "director/score.h"
++#include "director/sprite.h"
++
++namespace Director {
++
++struct LintRef {
++	int first = 0, last = 0, count = 0;
++};
++
++static void lintNote(Common::HashMap<Common::String, LintRef> &refs, const Common::String &key, int frame) {
++	LintRef &r = refs[key];
++	if (!r.count)
++		r.first = frame;
++	r.last = frame;
++	r.count++;
++}
++
++static void lintFrame(Movie *movie, Frame *frame, int frameNum, const Common::String &prefix,
++		Common::HashMap<Common::String, LintRef> &refs) {
++	const MainChannels &mc = frame->_mainChannels;
++	if (!mc.palette.paletteId.isNull() && !g_director->hasPalette(mc.palette.paletteId))
++		lintNote(refs, prefix + "palette " + mc.palette.paletteId.asString(), frameNum);
++	const CastMemberID ids[] = { mc.sound1, mc.sound2, mc.actionId, mc.trans };
++	const char *names[] = { "sound1", "sound2", "frame script", "transition" };
++	for (int i = 0; i < 4; i++) {
++		if (ids[i].member != 0 && !movie->getCastMember(ids[i]))
++			lintNote(refs, prefix + names[i] + " " + ids[i].asString(), frameNum);
++	}
++	for (uint ch = 1; ch < frame->_sprites.size(); ch++) {
++		Sprite *s = frame->_sprites[ch];
++		if (!s)
++			continue;
++		if (s->_castId.member != 0 && !movie->getCastMember(s->_castId))
++			lintNote(refs, prefix + Common::String::format("channel %d cast ", ch) + s->_castId.asString() +
++				Common::String::format(" (type %d, ink %d)", s->_spriteType, s->_ink), frameNum);
++		if (s->_scriptId.member != 0 && !movie->getCastMember(s->_scriptId))
++			lintNote(refs, prefix + Common::String::format("channel %d script ", ch) + s->_scriptId.asString(), frameNum);
++	}
++}
++
++static void lintMovie(Movie *movie) {
++	Score *score = movie->getScore();
++	Common::HashMap<Common::String, LintRef> refs;
++	const uint frames = score->getFramesNum();
++	for (uint f = 1; f <= frames; f++) {
++		if (!score->loadFrame(f, false))
++			break;
++		lintFrame(movie, score->_currentFrame, f, "", refs);
++	}
++
++	// Film loops have their own score
++	int loops = 0;
++	Cast *cast = movie->getCast();
++	if (cast && cast->_loadedCast) {
++		for (auto &it : *cast->_loadedCast) {
++			if (!it._value || it._value->_type != kCastFilmLoop)
++				continue;
++			it._value->load();
++			FilmLoopCastMember *fl = (FilmLoopCastMember *)it._value;
++			if (!fl->_score)
++				continue;
++			loops++;
++			for (uint f = 0; f < fl->_score->_scoreCache.size(); f++)
++				lintFrame(movie, fl->_score->_scoreCache[f], f + 1, Common::String::format("filmloop %d: ", it._key), refs);
++		}
++	}
++
++	for (auto &it : refs)
++		debug("LINT %s: %s, frames %d-%d (%d frames)", movie->getMacName().c_str(), it._key.c_str(),
++			it._value.first, it._value.last, it._value.count);
++	debug("LINT %s: %d frames and %d film loops checked, %d issues", movie->getMacName().c_str(), frames, loops, (int)refs.size());
++}
++
++} // End of namespace Director
++// ---- end of TEMPORARY lint ----
++
+ namespace Director {
+ 
+ bool commandsWindowCallback(Graphics::WindowClick click, Common::Event &event, void *window) {
+@@ -733,6 +816,13 @@ bool Window::step() {
+ 				debug(0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+ 
+ 				bool goodMovie = _currentMovie->loadArchive();
++
++				// TEMPORARY lint
++				if (goodMovie && ConfMan.hasKey("mausjagd_lint") && ConfMan.getBool("mausjagd_lint")) {
++					lintMovie(_currentMovie);
++					Engine::quitGame();
++					return false;
++				}
+ 				// If we've just started, switch to the default palette
+ 				if (g_director->_firstMovie)
+ 					g_director->setPalette(_currentMovie->getCast()->_defaultPalette);

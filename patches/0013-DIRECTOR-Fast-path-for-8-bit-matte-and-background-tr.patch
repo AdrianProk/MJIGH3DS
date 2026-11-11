@@ -1,7 +1,7 @@
 From b77e081582ca285d0e62329125429016db4c2771 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 06:16:29 +0100
-Subject: [PATCH 13/14] DIRECTOR: Fast path for 8-bit matte and background
+Subject: [PATCH 13/15] DIRECTOR: Fast path for 8-bit matte and background
  transparent blits
 
 Every ink other than an unmasked copy went through InkPrimitives::

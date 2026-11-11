@@ -1,7 +1,7 @@
 From f53e4857ee4db95b9c21030a570bb09149c1ff66 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 20:03:03 +0100
-Subject: [PATCH 05/14] 3DS: Add a diagnostic mode to the standalone build
+Subject: [PATCH 05/15] 3DS: Add a diagnostic mode to the standalone build
  (MAUSJAGD_PORT)
 
 The diagnostic mode helps to analyze startup time and frame rate on

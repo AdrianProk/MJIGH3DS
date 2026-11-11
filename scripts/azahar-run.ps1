@@ -17,7 +17,10 @@ param(
     # Marke 1 (Bild "1-startbildschirm"): Diagnosemodus "diag: backend ready", sonst "Log opened"
     [string]$ReadyPattern = "diag: backend ready",
     # Marke 2 (Bild "2-spiel" nach AfterGameSeconds): erstes Bild des Spiels
-    [string]$GamePattern = "first frame at 640x480"
+    [string]$GamePattern = "first frame at 640x480",
+    # Optional weitere Bilder "3-spiel", "4-spiel", ... im Abstand ShotIntervalMs (z. B. für Blinken)
+    [int]$MoreShots = 0,
+    [int]$ShotIntervalMs = 250
 )
 $Game = (Resolve-Path $Game).Path
 
@@ -73,5 +76,9 @@ $ok2 = WaitFor $GamePattern
 "Marke 2 ($GamePattern): $ok2 nach $([int]((Get-Date) - $start).TotalMilliseconds) ms"
 Start-Sleep -Seconds $AfterGameSeconds
 Shot $p "2-spiel"
+for ($i = 0; $i -lt $MoreShots; $i++) {
+    Start-Sleep -Milliseconds $ShotIntervalMs
+    Shot $p "$($i + 3)-spiel"
+}
 if (-not $p.HasExited) { Stop-Process -Id $p.Id }
 "fertig"

@@ -251,14 +251,23 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
 ## Phase 5: 3DS-Anpassung
 
 - [ ] **T5.1** Bildschirm-Layout nach PLAN.md §3 umsetzen. Das Spiel läuft auf dem unteren Bildschirm in 320×240 (Faktor 0,5). **Oberer Bildschirm** (Entscheidung des Nutzers, 2026-11-10):
-  - Bis zum Ende des Intros: Startbildschirm bzw. Spielbild.
-  - Danach die **Hotelkarte** `hotlpicdull.256` aus `GGMDMENU`, verkleinert auf 320×240.
-  - Der aktuelle Raum bekommt einen **blinkenden Rahmen** um sein Fenster. Die Klickflächen sind die Sprites 5–23 der Hotelübersicht; Feld `roomlist` ordnet sie zu, Zeile = Sprite − 4.
+  - Bis zur ersten Hotelübersicht: Startbildschirm bzw. Spielbild.
+  - Danach die **Hotelkarte**: der Querschnitt `interfinalfordir0001` aus `GGMDMENU`, verkleinert auf 320×235.
+  - Der aktuelle Raum bekommt einen **blinkenden Rahmen** um sein Zimmerbild. Die Klickflächen sind die Sprites 5–23 der Hotelübersicht; Feld `roomlist` ordnet sie zu, Zeile = Sprite − 4.
   - Daneben steht der **Mäusezähler** aus `miceCaught`.
   - Die Karte verrät nicht, wo die nächste Maus steckt.
 
   Zuerst prüfen, was das 3DS-Backend schon kann (Bildschirmwahl, Touch-Modus), und es entsprechend konfigurieren; Fehlendes in `backends/platform/3ds/` bzw. der Director-Engine ergänzen. Skalierungsfilter vergleichen (nächster Nachbar oder linear), Kriterium ist die Lesbarkeit. Bilder kommen nach `dist/screens/`, weil sie Spielgrafik enthalten (ignoriert).
   *Fertig, wenn:* das Layout standardmäßig aktiv ist und die Entscheidungen zu Filter und Lupe in `docs/3ds-ux.md` stehen.
+  → **Zwischenstand** (2026-11-11): Die **Hotelkarte oben ist umgesetzt** (Patch 0010) und im Emulator geprüft:
+    - Karte in Originalfarben (eigene Palette des Bildes, Cast 23).
+    - Blinkender Rahmen um ARTIST und SNOOKER korrekt.
+    - Zähler "Mäuse 0 von 19" sichtbar.
+
+    Die Klickflächen liegen etwa 12 Pixel tiefer als die Zimmerbilder; der Rahmen nutzt deshalb eine gemessene Tabelle der Zimmerbilder. **Offen:**
+    - Zähler mit Werten > 0 im echten Spiel (Rückmeldung des Nutzers).
+    - Der untere Bildschirm: Das Spiel nur dort zeigen, Filter vergleichen.
+    - `docs/3ds-ux.md` anlegen.
 - [ ] **T5.2** Direkte Touch-Eingabe umsetzen: Die Tippposition ist die Mausposition, kein Touchpad-Modus. Beim Aufsetzen springt der Zeiger auf die Tippposition, im selben Frame folgt `mouseDown`. Ziehen bewegt den Zeiger, Loslassen löst `mouseUp` an der letzten Position aus. Den Hover-Ersatz für `rollOver` laut T2.6 umsetzen; das gilt fürs Menü und vor allem für das **Mausometer** auf der Hotelübersicht, das man durch Ziehen über das Bild bewegt (siehe `docs/gameplay.md`). Den Cursor auf dem Touchscreen ausblenden. Tasten wie in PLAN.md §3 belegen, einschließlich der Tasten, die das Spiel abfragt. **Texteingabe:** Den Namen beim Speichern über die 3DS-Bildschirmtastatur eingeben; prüfen, ob das ScummVM-Backend sie schon anbietet.
   *Fertig, wenn:* ein Log des Debug-Kanals `events` für 10 Tipps zeigt, dass Klickposition und getroffenes Sprite stimmen, auch bei einer laufenden Maus. Das Mausometer lässt sich per Ziehen bedienen, und ein Spielstand mit Namen lässt sich speichern.
 - [ ] **T5.3** Treffhilfe für Mäuse in der Director-Engine umsetzen, als spielspezifischen Quirk mit abschaltbarer Option (z. B. `touch_hit_radius`). Trifft ein `mouseDown` keine Maus, wird im Radius um den Tippunkt das nächste sichtbare Maus-Sprite laut `docs/mouse-catching.md` gesucht und der Klick auf dessen Mittelpunkt umgelenkt. Alle anderen Klickflächen bleiben exakt. Am Desktop entwickeln (die Option ist dort ebenfalls aktivierbar), auf dem 3DS abstimmen, danach Patch-Export (Regel 7).

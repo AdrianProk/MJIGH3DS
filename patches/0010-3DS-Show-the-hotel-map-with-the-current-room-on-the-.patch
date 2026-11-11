@@ -1,0 +1,647 @@
+From 1ab81ca9da7160065d274ae58f574e78b94d5f04 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 05:42:31 +0100
+Subject: [PATCH 10/10] 3DS: Show the hotel map with the current room on the
+ top screen (MAUSJAGD_PORT)
+
+Standalone build of "Mausejagd im Grandhotel": once the game has shown
+its hotel overview (movie GGMDMENU), the top screen shows that hotel
+map scaled to 320x240, a blinking frame around the room the player is
+in and the number of caught mice (Lingo global miceCaught). Before
+that, the top screen shows the game as before.
+
+- OSystem::setSecondaryScreen(): new optional backend call, a no-op by
+  default, implemented by the 3DS backend (top screen picture plus a
+  blinking marker; the backend magnify mode still shows the game)
+- Director: mausjagdSecondaryScreenTick() in the main loop takes the
+  overview picture with its own palette, the room names from field
+  "roomlist" and the outlines of the room pictures. The room sprites
+  are the hot spots of the mouse detector and lie lower than the
+  pictures, so the outlines of the known picture are a measured table;
+  other pictures fall back to the sprites.
+- "mausjagd_debug_room" in scummvm.ini pretends to be in a room, for
+  tests without input
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/osystem-graphics.cpp |  59 ++++
+ backends/platform/3ds/osystem.h            |   4 +
+ common/system.h                            |  14 +
+ engines/director/director.cpp              |   7 +
+ engines/director/mausjagd-port.cpp         | 382 +++++++++++++++++++++
+ engines/director/mausjagd-port.h           |  45 +++
+ engines/director/module.mk                 |   1 +
+ 7 files changed, 512 insertions(+)
+ create mode 100644 engines/director/mausjagd-port.cpp
+ create mode 100644 engines/director/mausjagd-port.h
+
+diff --git a/backends/platform/3ds/osystem-graphics.cpp b/backends/platform/3ds/osystem-graphics.cpp
+index ad97094f2a..b0d7dc5f65 100644
+--- a/backends/platform/3ds/osystem-graphics.cpp
++++ b/backends/platform/3ds/osystem-graphics.cpp
+@@ -496,6 +496,10 @@ void OSystem_3DS::updateScreen() {
+ 		}
+ 		_osdMessage.transfer();
+ 		_activityIcon.transfer();
++#ifdef MAUSJAGD_PORT
++		_secondaryScreen.transfer();
++		_secondaryMarker.transfer();
++#endif
+ 	C3D_FrameEnd(0);
+ 
+ 	C3D_FrameBegin(0);
+@@ -504,9 +508,24 @@ void OSystem_3DS::updateScreen() {
+ 		C3D_FrameDrawOn(_renderTargetTop);
+ 		if (_screen == kScreenTop || _screen == kScreenBoth) {
+ 			C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _projectionLocation, &_projectionTop);
++#ifdef MAUSJAGD_PORT
++			// Standalone build: the picture from setSecondaryScreen() replaces the
++			// game on the top screen; the marker blinks twice per second. The
++			// backend's magnify mode still shows the game.
++			if (_secondaryScreen.getPixels() && _magnifyMode != MODE_MAGON) {
++				C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _modelviewLocation, _secondaryScreen.getMatrix());
++				_secondaryScreen.render();
++				if (_secondaryMarker.getPixels() && (getMillis(true) / 500) % 2 == 0) {
++					C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _modelviewLocation, _secondaryMarker.getMatrix());
++					_secondaryMarker.render();
++				}
++			} else
++#endif
++			{
+ 			C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _modelviewLocation, _gameTopTexture.getMatrix());
+ 			_gameTopTexture.setFilteringMode(_magnifyMode != MODE_MAGON && _filteringEnabled);
+ 			_gameTopTexture.render();
++			}
+ 			if (_overlayVisible && _screen == kScreenTop) {
+ 				C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, _modelviewLocation, _overlay.getMatrix());
+ 				_overlay.render();
+@@ -969,6 +988,46 @@ void OSystem_3DS::setStartupPhase(StartupPhase phase) {
+ 	renderStartupScreen();
+ }
+ 
++void OSystem_3DS::setSecondaryScreen(const Graphics::Surface *image, const Common::Rect &marker) {
++	_secondaryMarker.free();
++	if (!image || !image->getPixels() || image->w <= 0 || image->h <= 0) {
++		_secondaryScreen.free();
++		return;
++	}
++
++	// Copy the picture into a top screen texture, converted and clipped to 400x240
++	const int width = MIN<int>(image->w, 400), height = MIN<int>(image->h, 240);
++	_secondaryScreen.create(width, height, &DEFAULT_MODE);
++	if (image->format == _secondaryScreen.format) {
++		_secondaryScreen.copyRectToSurface(*image, 0, 0, Common::Rect(width, height));
++	} else {
++		Graphics::Surface *converted = image->convertTo(_secondaryScreen.format);
++		_secondaryScreen.copyRectToSurface(*converted, 0, 0, Common::Rect(width, height));
++		converted->free();
++		delete converted;
++	}
++	_secondaryScreen.setPosition(0, 0);
++	_secondaryScreen.setFilteringMode(false);
++	_secondaryScreen.markDirty();
++
++	// Marker: a 2-pixel frame, transparent inside
++	Common::Rect frame = marker;
++	frame.clip(Common::Rect(width, height));
++	if (frame.width() > 4 && frame.height() > 4) {
++		const int w = frame.width(), h = frame.height();
++		const uint32 color = _pfDefaultTexture.ARGBToColor(255, 255, 220, 60);
++		_secondaryMarker.create(w, h, &DEFAULT_MODE);
++		_secondaryMarker.clear(0);
++		_secondaryMarker.fillRect(Common::Rect(0, 0, w, 2), color);
++		_secondaryMarker.fillRect(Common::Rect(0, h - 2, w, h), color);
++		_secondaryMarker.fillRect(Common::Rect(0, 0, 2, h), color);
++		_secondaryMarker.fillRect(Common::Rect(w - 2, 0, w, h), color);
++		_secondaryMarker.setPosition(frame.left, frame.top);
++		_secondaryMarker.setFilteringMode(false);
++		_secondaryMarker.markDirty();
++	}
++}
++
+ void OSystem_3DS::renderStartupScreen() {
+ 	C3D_FrameBegin(0);
+ 		_startupScreen.transfer();
+diff --git a/backends/platform/3ds/osystem.h b/backends/platform/3ds/osystem.h
+index b528db3925..2432ecc9bd 100644
+--- a/backends/platform/3ds/osystem.h
++++ b/backends/platform/3ds/osystem.h
+@@ -183,6 +183,7 @@ public:
+ 	void displayActivityIconOnOSD(const Graphics::Surface *icon) override;
+ #ifdef MAUSJAGD_PORT
+ 	void engineInit() override;
++	void setSecondaryScreen(const Graphics::Surface *image, const Common::Rect &marker) override;
+ #endif
+ 
+ 	bool showMouse(bool visible);
+@@ -268,6 +269,9 @@ private:
+ 	Sprite _osdMessage;
+ #ifdef MAUSJAGD_PORT
+ 	Sprite _startupScreen;
++	// Picture for the top screen from setSecondaryScreen() and its blinking marker
++	Sprite _secondaryScreen;
++	Sprite _secondaryMarker;
+ 	StartupPhase _startupPhase;
+ 	bool _startupEngineReady; // the engine has set its resolution
+ #endif
+diff --git a/common/system.h b/common/system.h
+index 3aa1449ccc..b0214f4241 100644
+--- a/common/system.h
++++ b/common/system.h
+@@ -1747,6 +1747,20 @@ public:
+ 	 */
+ 	virtual void displayMessageOnOSD(const Common::U32String &msg) = 0;
+ 
++#ifdef MAUSJAGD_PORT
++	/**
++	 * Standalone "Mausejagd im Grandhotel" build: show a picture on a second
++	 * screen of the device (the top screen of the 3DS), next to the game.
++	 *
++	 * @param image  Picture for the second screen in any pixel format; the
++	 *               backend copies it. nullptr returns the second screen to
++	 *               its default content.
++	 * @param marker Rectangle in picture coordinates that the backend
++	 *               highlights, e.g. by blinking. Empty for no marker.
++	 */
++	virtual void setSecondaryScreen(const Graphics::Surface *image, const Common::Rect &marker) {}
++#endif
++
+ 	/**
+ 	 * Display an icon that indicates background activity.
+ 	 *
+diff --git a/engines/director/director.cpp b/engines/director/director.cpp
+index 27773ddd15..c32920fd32 100644
+--- a/engines/director/director.cpp
++++ b/engines/director/director.cpp
+@@ -40,6 +40,9 @@
+ #include "director/window.h"
+ #include "director/lingo/lingo-profiler.h"
+ #include "director/debugger/debugtools.h"
++#ifdef MAUSJAGD_PORT
++#include "director/mausjagd-port.h"
++#endif
+ 
+ /**
+  * When detection is compiled dynamically, directory globs end up in detection plugin and
+@@ -394,6 +397,10 @@ Common::Error DirectorEngine::run() {
+ 		DT::renderPendingWindow();
+ 
+ 		draw();
++#ifdef MAUSJAGD_PORT
++		// Standalone build: hotel map with the current room on the second screen
++		mausjagdSecondaryScreenTick();
++#endif
+ 		while (!_windowsToForget.empty()) {
+ 			Window *window = _windowsToForget.back();
+ 			_windowsToForget.pop_back();
+diff --git a/engines/director/mausjagd-port.cpp b/engines/director/mausjagd-port.cpp
+new file mode 100644
+index 0000000000..f6f046df12
+--- /dev/null
++++ b/engines/director/mausjagd-port.cpp
+@@ -0,0 +1,382 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++// Second screen of the standalone "Mäusejagd im Grandhotel" build, see
++// mausjagd-port.h. Only compiled when MAUSJAGD_PORT is defined.
++
++#ifdef MAUSJAGD_PORT
++
++#include "common/config-manager.h"
++#include "common/rect.h"
++#include "common/system.h"
++#include "graphics/font.h"
++#include "graphics/fontman.h"
++#include "graphics/surface.h"
++
++#include "director/director.h"
++#include "director/cast.h"
++#include "director/channel.h"
++#include "director/movie.h"
++#include "director/picture.h"
++#include "director/score.h"
++#include "director/sprite.h"
++#include "director/castmember/bitmap.h"
++#include "director/castmember/text.h"
++#include "director/lingo/lingo.h"
++#include "director/mausjagd-port.h"
++
++namespace Director {
++
++namespace {
++
++// Hotel overview of the game (movie GGMDMENU, frame "select"): a cutaway
++// picture of the hotel with all rooms and one sprite per room on top of it.
++// Line (sprite - 4) of field "roomlist" names the movie of that room.
++// Sprite 24 is the attic, shown once all rooms are done.
++const char *const kMapMovie = "GGMDMENU";
++const char *const kMapBitmap = "interfinalfordir0001";
++const char *const kRoomListField = "roomlist";
++const char *const kAtticMovie = "ATTIC";
++const char *const kMiceCaughtGlobal = "miceCaught";
++const int kFirstRoomSprite = 5;
++const int kNumRooms = 19;
++const int kAtticSprite = 24;
++const int kAttic = kNumRooms; // index of the attic in roomRects
++
++// The room sprites are the hot spots of the mouse detector and lie about 12
++// pixels lower than the room pictures. For the known hotel picture, the
++// marker uses the outlines of the room pictures instead, measured in the
++// picture (582x429, left/top inclusive, right/bottom exclusive).
++const int kKnownMapWidth = 582;
++const int kKnownMapHeight = 429;
++const struct {
++	const char *room;
++	int16 left, top, right, bottom;
++} kRoomPictures[] = {
++	{ "artist",   12,  81, 123, 161 }, { "farmer",  130,  81, 236, 161 },
++	{ "witches", 243,  81, 344, 161 }, { "plumber", 353,  81, 458, 161 },
++	{ "madsci",  467,  81, 572, 161 }, { "newlywed", 11, 166, 144, 247 },
++	{ "presbed", 152, 166, 286, 247 }, { "presliv", 295, 166, 427, 247 },
++	{ "ballroom", 436, 166, 570, 247 }, { "business", 11, 252, 109, 332 },
++	{ "playroom", 121, 252, 217, 332 }, { "slobs",   227, 252, 344, 332 },
++	{ "bathroom", 352, 252, 460, 332 }, { "exercise", 467, 252, 572, 332 },
++	{ "library",  11, 339, 117, 419 }, { "dining",  123, 339, 227, 419 },
++	{ "kitchen", 235, 339, 345, 419 }, { "bar",     352, 339, 459, 419 },
++	{ "snooker", 467, 339, 572, 419 }, { "attic",    12,  10, 570,  74 }
++};
++
++// Layout of the second screen: map in the middle, mouse counter on the left
++const int kScreenWidth = 400;
++const int kScreenHeight = 240;
++const int kPanelWidth = 40;
++const int kMaxMapWidth = kScreenWidth - 2 * kPanelWidth;
++
++struct SecondaryScreen {
++	bool haveMap = false;
++	bool failed = false;                   // map could not be used, don't try again
++	Graphics::Surface map;                 // hotel, scaled down to fit, RGBA
++	int pictureWidth = 0;                  // size of the original hotel picture
++	int pictureHeight = 0;
++	Common::Rect roomRects[kNumRooms + 1]; // coordinates in the original picture
++	Common::StringArray roomNames;         // movie names from field "roomlist"
++	Common::String debugRoom;              // test aid, see captureMap()
++	Common::String shownRoom;              // state of the last picture
++	int shownMice = -1;
++	bool shown = false;
++
++	~SecondaryScreen() { map.free(); }
++};
++
++SecondaryScreen g_screen;
++
++// "D:\GGMD\ARTIST.DXR" -> "ARTIST"
++Common::String baseName(const Common::String &movieName) {
++	uint start = 0;
++	for (uint i = 0; i < movieName.size(); i++) {
++		if (movieName[i] == '\\' || movieName[i] == '/' || movieName[i] == ':')
++			start = i + 1;
++	}
++	Common::String name(movieName.c_str() + start);
++	for (int i = (int)name.size() - 1; i >= 0; i--) {
++		if (name[i] == '.') {
++			name = Common::String(name.c_str(), (uint)i);
++			break;
++		}
++	}
++	name.trim();
++	return name;
++}
++
++// Lines of a field, empty lines included, as Lingo counts them
++Common::StringArray splitLines(const Common::String &text) {
++	Common::StringArray lines;
++	Common::String line;
++	for (uint i = 0; i < text.size(); i++) {
++		const char c = text[i];
++		if (c == '\r' || c == '\n') {
++			lines.push_back(line);
++			line.clear();
++			if (c == '\r' && i + 1 < text.size() && text[i + 1] == '\n')
++				i++;
++		} else {
++			line += c;
++		}
++	}
++	if (!line.empty())
++		lines.push_back(line);
++	return lines;
++}
++
++int miceCaught() {
++	if (!g_lingo || !g_lingo->_globalvars.contains(kMiceCaughtGlobal))
++		return 0;
++	const Datum &mice = g_lingo->_globalvars.getVal(kMiceCaughtGlobal);
++	if (mice.type == INT)
++		return mice.u.i;
++	if (mice.type == FLOAT)
++		return (int)mice.u.f;
++	return 0;
++}
++
++// Takes the hotel map, the room rectangles and the room names while the
++// overview is on stage. Returns false if the overview is not shown.
++bool captureMap(Movie *movie) {
++	Cast *cast = movie->getCast();
++	if (!cast)
++		return false;
++	CastMember *member = cast->getCastMemberByNameAndType(kMapBitmap, kCastBitmap);
++	if (!member || member->_type != kCastBitmap)
++		return false;
++
++	Score *score = movie->getScore();
++	Channel *mapChannel = nullptr;
++	for (uint i = 1; i < score->_channels.size(); i++) {
++		Channel *channel = score->_channels[i];
++		if (channel && channel->_visible && channel->_sprite && channel->_sprite->_cast == member) {
++			mapChannel = channel;
++			break;
++		}
++	}
++	if (!mapChannel)
++		return false;
++
++	const BitmapCastMember *bitmap = static_cast<BitmapCastMember *>(member);
++	const Picture *picture = bitmap->_picture;
++	const Common::Rect mapBox = mapChannel->getBbox();
++	if (!picture || picture->_surface.format.bytesPerPixel != 1 || !picture->_surface.getPixels() ||
++			picture->_surface.w < 2 || picture->_surface.h < 2 || mapBox.width() < 2 || mapBox.height() < 2) {
++		warning("mausjagd: hotel map '%s' has no usable 8-bit picture, second screen stays off", kMapBitmap);
++		g_screen.failed = true;
++		return false;
++	}
++
++	// Fit the hotel into the map area, keeping the aspect ratio, never enlarging
++	const Graphics::Surface &src = picture->_surface;
++	int width = kMaxMapWidth;
++	int height = src.h * kMaxMapWidth / src.w;
++	if (height > kScreenHeight) {
++		height = kScreenHeight;
++		width = src.w * kScreenHeight / src.h;
++	}
++	if (width > src.w || height > src.h) {
++		width = src.w;
++		height = src.h;
++	}
++	width = MAX(width, 1);
++	height = MAX(height, 1);
++
++	// The pixels refer to the bitmap's own palette; the engine remaps them to
++	// the stage palette only when drawing. Fall back to the stage palette.
++	const byte *palette = g_director->getPalette();
++	int colors = g_director->getPaletteColorCount();
++	const PaletteV4 *ownPalette = g_director->getPalette(bitmap->_clut);
++	if (ownPalette && ownPalette->palette && ownPalette->length > 0) {
++		palette = ownPalette->palette;
++		colors = ownPalette->length;
++	}
++
++	// Scale down, averaging all source pixels of each target pixel
++	const Graphics::PixelFormat format = Graphics::PixelFormat::createFormatRGBA32();
++	g_screen.map.free();
++	g_screen.map.create(width, height, format);
++	for (int y = 0; y < height; y++) {
++		const int sy0 = y * src.h / height;
++		const int sy1 = MAX(sy0 + 1, (y + 1) * src.h / height);
++		uint32 *dst = (uint32 *)g_screen.map.getBasePtr(0, y);
++		for (int x = 0; x < width; x++) {
++			const int sx0 = x * src.w / width;
++			const int sx1 = MAX(sx0 + 1, (x + 1) * src.w / width);
++			uint r = 0, g = 0, b = 0, n = 0;
++			for (int sy = sy0; sy < sy1 && sy < src.h; sy++) {
++				const byte *row = (const byte *)src.getBasePtr(0, sy);
++				for (int sx = sx0; sx < sx1 && sx < src.w; sx++) {
++					const int color = row[sx];
++					if (palette && color < colors) {
++						r += palette[color * 3];
++						g += palette[color * 3 + 1];
++						b += palette[color * 3 + 2];
++					}
++					n++;
++				}
++			}
++			dst[x] = n ? format.RGBToColor(r / n, g / n, b / n) : 0;
++		}
++	}
++	g_screen.pictureWidth = src.w;
++	g_screen.pictureHeight = src.h;
++
++	g_screen.roomNames.clear();
++	CastMember *field = cast->getCastMemberByNameAndType(kRoomListField, kCastText);
++	if (field && field->_type == kCastText) {
++		const Common::StringArray lines = splitLines(static_cast<TextCastMember *>(field)->getText().encode());
++		for (uint i = 0; i < lines.size() && i < (uint)kNumRooms; i++)
++			g_screen.roomNames.push_back(baseName(lines[i]));
++	}
++
++	// Room rectangles in picture coordinates: the measured room pictures for
++	// the known hotel picture, otherwise the hot spot sprites
++	const bool knownPicture = src.w == kKnownMapWidth && src.h == kKnownMapHeight;
++	for (int i = 0; i <= kNumRooms; i++) {
++		Common::Rect &rect = g_screen.roomRects[i];
++		rect = Common::Rect();
++		const Common::String name = (i == kAttic) ? Common::String(kAtticMovie) :
++			(i < (int)g_screen.roomNames.size() ? g_screen.roomNames[i] : Common::String());
++		if (knownPicture && !name.empty()) {
++			for (const auto &entry : kRoomPictures) {
++				if (name.equalsIgnoreCase(entry.room)) {
++					rect = Common::Rect(entry.left, entry.top, entry.right, entry.bottom);
++					break;
++				}
++			}
++		}
++		if (!rect.isEmpty())
++			continue;
++
++		const uint spriteNum = (i == kAttic) ? kAtticSprite : kFirstRoomSprite + i;
++		if (spriteNum < score->_channels.size()) {
++			Channel *channel = score->_channels[spriteNum];
++			if (channel && channel->_sprite && channel->_sprite->_castId.member != 0) {
++				// Stage coordinates relative to the hotel picture, in picture pixels
++				const Common::Rect box = channel->getBbox();
++				rect = Common::Rect((box.left - mapBox.left) * src.w / mapBox.width(),
++				                    (box.top - mapBox.top) * src.h / mapBox.height(),
++				                    (box.right - mapBox.left) * src.w / mapBox.width(),
++				                    (box.bottom - mapBox.top) * src.h / mapBox.height());
++				rect.clip(Common::Rect(src.w, src.h));
++			}
++		}
++	}
++
++	// Test aid: pretend to be in this room ("mausjagd_debug_room" in scummvm.ini)
++	if (ConfMan.hasKey("mausjagd_debug_room"))
++		g_screen.debugRoom = ConfMan.get("mausjagd_debug_room");
++
++	debug(1, "mausjagd: hotel map %dx%d at %d,%d-%d,%d on stage, scaled to %dx%d, palette %s (%s), %d room names",
++	      src.w, src.h, mapBox.left, mapBox.top, mapBox.right, mapBox.bottom, width, height,
++	      bitmap->_clut.asString().c_str(), palette == g_director->getPalette() ? "stage" : "own",
++	      (int)g_screen.roomNames.size());
++	for (int i = 0; i <= kNumRooms; i++) {
++		const Common::Rect &r = g_screen.roomRects[i];
++		debug(1, "mausjagd: room %d '%s' at %d,%d-%d,%d", i,
++		      i < (int)g_screen.roomNames.size() ? g_screen.roomNames[i].c_str() : (i == kAttic ? kAtticMovie : ""),
++		      r.left, r.top, r.right, r.bottom);
++	}
++	return true;
++}
++
++// Index into roomRects for a movie name, -1 if it is no room on the map
++int findRoom(const Common::String &name) {
++	for (uint i = 0; i < g_screen.roomNames.size(); i++) {
++		if (!g_screen.roomNames[i].empty() && name.equalsIgnoreCase(g_screen.roomNames[i]))
++			return g_screen.roomRects[i].isEmpty() ? -1 : (int)i;
++	}
++	if (name.equalsIgnoreCase(kAtticMovie) && !g_screen.roomRects[kAttic].isEmpty())
++		return kAttic;
++	return -1;
++}
++
++void showScreen(int room, int mice) {
++	const Graphics::PixelFormat format = Graphics::PixelFormat::createFormatRGBA32();
++	Graphics::Surface screen;
++	screen.create(kScreenWidth, kScreenHeight, format);
++	screen.fillRect(Common::Rect(kScreenWidth, kScreenHeight), format.RGBToColor(18, 24, 44));
++
++	const int mapX = kPanelWidth + (kMaxMapWidth - g_screen.map.w) / 2;
++	const int mapY = (kScreenHeight - g_screen.map.h) / 2;
++	screen.copyRectToSurface(g_screen.map, mapX, mapY, Common::Rect(g_screen.map.w, g_screen.map.h));
++
++	const Graphics::Font *font = FontMan.getFontByUsage(Graphics::FontManager::kGUIFont);
++	const Graphics::Font *bigFont = FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
++	const uint32 textColor = format.RGBToColor(176, 186, 208);
++	const uint32 numberColor = format.RGBToColor(240, 200, 80);
++	if (font)
++		font->drawString(&screen, Common::U32String("M\xc3\xa4use"), 0, 92, kPanelWidth, textColor, Graphics::kTextAlignCenter);
++	if (bigFont)
++		bigFont->drawString(&screen, Common::U32String(Common::String::format("%d", mice)), 0, 108, kPanelWidth, numberColor, Graphics::kTextAlignCenter);
++	if (font)
++		font->drawString(&screen, Common::U32String(Common::String::format("von %d", kNumRooms)), 0, 126, kPanelWidth, textColor, Graphics::kTextAlignCenter);
++
++	// Marker around the room's picture, scaled like the map, with 1 pixel of space
++	Common::Rect marker;
++	const int pw = g_screen.pictureWidth, ph = g_screen.pictureHeight;
++	if (room >= 0 && pw > 0 && ph > 0) {
++		const Common::Rect &r = g_screen.roomRects[room];
++		marker = Common::Rect(mapX + r.left * g_screen.map.w / pw - 1, mapY + r.top * g_screen.map.h / ph - 1,
++		                      mapX + r.right * g_screen.map.w / pw + 1, mapY + r.bottom * g_screen.map.h / ph + 1);
++		marker.clip(Common::Rect(kScreenWidth, kScreenHeight));
++	}
++
++	debug(1, "mausjagd: second screen: room %d, %d mice, marker %d,%d-%d,%d", room, mice,
++	      marker.left, marker.top, marker.right, marker.bottom);
++	g_system->setSecondaryScreen(&screen, marker);
++	screen.free();
++}
++
++} // End of anonymous namespace
++
++void mausjagdSecondaryScreenTick() {
++	if (g_screen.failed)
++		return;
++	Movie *movie = g_director->getCurrentMovie();
++	if (!movie || !movie->getScore())
++		return;
++	const Common::String name = baseName(movie->getMacName());
++
++	if (!g_screen.haveMap) {
++		if (!name.equalsIgnoreCase(kMapMovie) || !captureMap(movie))
++			return;
++		g_screen.haveMap = true;
++	}
++
++	const Common::String room = g_screen.debugRoom.empty() ? name : g_screen.debugRoom;
++	const int mice = miceCaught();
++	if (g_screen.shown && room == g_screen.shownRoom && mice == g_screen.shownMice)
++		return;
++
++	g_screen.shown = true;
++	g_screen.shownRoom = room;
++	g_screen.shownMice = mice;
++	showScreen(findRoom(room), mice);
++}
++
++} // End of namespace Director
++
++#endif
+diff --git a/engines/director/mausjagd-port.h b/engines/director/mausjagd-port.h
+new file mode 100644
+index 0000000000..a6173e2c6e
+--- /dev/null
++++ b/engines/director/mausjagd-port.h
+@@ -0,0 +1,45 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#ifndef DIRECTOR_MAUSJAGD_PORT_H
++#define DIRECTOR_MAUSJAGD_PORT_H
++
++#ifdef MAUSJAGD_PORT
++
++namespace Director {
++
++/**
++ * Standalone build of "Mäusejagd im Grandhotel" (The Great Green Mouse
++ * Disaster): picture for the second screen of the device (3DS top screen).
++ *
++ * Once the game has shown its hotel overview, the second screen shows that
++ * hotel map with a marker on the room the player is in and the number of
++ * caught mice. The picture goes to OSystem::setSecondaryScreen().
++ *
++ * Called once per iteration of the main loop; cheap when nothing changes.
++ */
++void mausjagdSecondaryScreenTick();
++
++} // End of namespace Director
++
++#endif
++
++#endif
+diff --git a/engines/director/module.mk b/engines/director/module.mk
+index 28550729f7..9012d0c282 100644
+--- a/engines/director/module.mk
++++ b/engines/director/module.mk
+@@ -12,6 +12,7 @@ MODULE_OBJS = \
+ 	fonts.o \
+ 	frame.o \
+ 	game-quirks.o \
++	mausjagd-port.o \
+ 	graphics.o \
+ 	images.o \
+ 	metaengine.o \

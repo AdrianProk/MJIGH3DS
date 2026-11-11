@@ -4,6 +4,20 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-11 – Hotelkarte auf dem oberen Bildschirm (T5.1, Agent)
+
+- **Build:** `mausjagd.3dsx`, Fork `1ab81ca9da`, Patches 0001–0010.
+- **Wunsch des Nutzers:** oben die Hotelkarte, ein blinkender Rahmen um den aktuellen Raum und ein Mäusezähler; die Lupe kommt später (T7.4).
+- **Befund beim Bauen:** Die Hotelübersicht ist **kein** Fassadenbild (`hotlpicdull.256`), sondern der Querschnitt `interfinalfordir0001` (582×429) mit 19 Zimmern und dem Dachboden.
+  - Seine Pixel beziehen sich auf die eigene Palette (Cast 23); mit der Bühnenpalette waren die Farben falsch.
+  - Die Klickflächen des Mausometers (Sprites 5–23) liegen etwa 12 Pixel tiefer als die Zimmerbilder. Die Umrisse der Zimmerbilder wurden einmalig im Bild gemessen und als Tabelle hinterlegt.
+- **Test in Azahar** (Direkteinstieg `GGMDMENU.DXR@14`, Testschlüssel `mausjagd_debug_room`):
+  - Karte in Originalfarben, "Mäuse 0 von 19".
+  - Rahmen um ARTIST (oben links) und SNOOKER (unten rechts) genau auf dem Zimmerbild.
+  - Das Blinken ist belegt: Von sieben Bildern im Abstand von 170 ms zeigen vier den Rahmen.
+- **Normaler Start** ohne Testschlüssel: unverändert, bis zur ersten Hotelübersicht zeigt der obere Bildschirm das Spiel; keine neuen Warnungen.
+- **Offen:** Rückmeldung aus dem echten Spiel (Rahmen beim Raumwechsel, Zähler nach dem Fangen).
+
 ### 2026-11-10 – B1, B2, B3 eingeordnet
 
 - **Rückmeldung des Nutzers:** "die weißen Figuren sind wohl vom Spiel so" (B3), "die FPS hat sich auch schon gefixt" (B2).

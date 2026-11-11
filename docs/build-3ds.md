@@ -85,7 +85,15 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
   - Bis dahin zeichnet `updateScreen()` nur den Startbildschirm; Bildänderungen des Spiels sammeln sich als Dirty Rects und erscheinen danach.
   - Code: `OSystem_3DS::setStartupPhase()`, `renderStartupScreen()`, `engineInit()` in `osystem-graphics.cpp`.
 - **Normaler Modus des oberen Bildschirms (Patch 0009):** Das Backend schaltet sonst den 800-Pixel-Breitmodus ein (`gfxSetWide`). Azahar zeigt davon nur die linke Hälfte, doppelt so breit, und für den Port bringt der Modus nichts. Der Port bleibt bei 400×240.
-- **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`).
+- **Hotelkarte auf dem oberen Bildschirm (Patch 0010, T5.1, Wunsch des Nutzers):**
+  - **Schnittstelle:** `OSystem::setSecondaryScreen(image, marker)` ist neu in `common/system.h`, hinter `MAUSJAGD_PORT` und standardmäßig ohne Wirkung. Das 3DS-Backend zeigt das Bild oben anstelle des Spiels und lässt `marker` als 2-Pixel-Rahmen zweimal pro Sekunde blinken. Ist die eingebaute Lupe des Backends aktiv, zeigt der obere Bildschirm weiter das Spiel.
+  - **Engine:** `engines/director/mausjagd-port.cpp`, aufgerufen in der Hauptschleife von `DirectorEngine::run()` nach `draw()`.
+    - Sobald in `GGMDMENU` das Bild `interfinalfordir0001` (582×429, Querschnitt mit allen Zimmern) auf der Bühne ist, übernimmt das Modul: das Bild mit seiner eigenen Palette (Cast 23), verkleinert auf 320×235, die Raumnamen aus Feld `roomlist` (Zeile = Sprite − 4) und den Dachboden (Sprite 24).
+    - Die Klickflächen (Sprites 5–24) liegen etwa 12 Pixel tiefer als die Zimmerbilder; der Rahmen nutzt deshalb eine im Bild gemessene Tabelle `kRoomPictures`. Für andere Bilder dienen die Sprites als Ersatz.
+    - Bei jedem Filmwechsel und jeder Änderung von `miceCaught` entsteht das Bild neu: links "Mäuse N von 19", in der Mitte die Karte, der Rahmen um den aktuellen Raum. Im Menü, in `INSTRUM` und `ORCH` gibt es keinen Rahmen.
+  - **Testhilfe:** `mausjagd_debug_room=ARTIST` im Abschnitt `[scummvm]` der `scummvm.ini` tut so, als sei man in diesem Raum. Zusammen mit `--start-movie=GGMDMENU.DXR@14` in der `diag.txt` lässt sich der Rahmen ohne Eingaben prüfen. Der Direkteinstieg endet nach einigen Sekunden mit einem Lingo-Fehler (`shortlist` fehlt), Karte und Rahmen sind dann aber schon sichtbar.
+  - **Speicher:** etwa 1 MB im linearen Speicher (Textur 512×256 RGBA plus Pixelpuffer); merken für S6.
+- **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`). Mit `-MoreShots N -ShotIntervalMs X` entstehen zusätzliche Bilder, z. B. zum Prüfen des Blinkens.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

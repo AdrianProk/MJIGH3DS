@@ -1,0 +1,116 @@
+From 4279c5a795ff4e3eac8e16ed0dc17a2e766cd356 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:23:30 +0100
+Subject: [PATCH 20/22] 3DS: Report memory usage in the diagnostic mode
+ (MAUSJAGD_PORT)
+
+A timer samples heap and linear heap usage every 20 ms, so that peaks
+while a movie is loading are caught as well. The frame statistics
+report current and peak heap usage and current and lowest free linear
+memory. This is needed to check the limits of the Old 3DS, which has
+a 10 MB linear heap.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/mausjagd.cpp | 37 ++++++++++++++++++++++++++++++
+ backends/platform/3ds/mausjagd.h   |  5 ++++
+ backends/platform/3ds/osystem.cpp  |  1 +
+ 3 files changed, 43 insertions(+)
+
+diff --git a/backends/platform/3ds/mausjagd.cpp b/backends/platform/3ds/mausjagd.cpp
+index 52e65d2ab3..6d6ea97221 100644
+--- a/backends/platform/3ds/mausjagd.cpp
++++ b/backends/platform/3ds/mausjagd.cpp
+@@ -27,13 +27,20 @@
+ #define FORBIDDEN_SYMBOL_EXCEPTION_time_h
+ 
+ #include <3ds.h>
++#include <malloc.h>
+ 
+ #include "backends/platform/3ds/mausjagd.h"
+ #include "common/debug.h"
+ #include "common/fs.h"
+ #include "common/stream.h"
++#include "common/system.h"
++#include "common/timer.h"
+ #include "common/tokenizer.h"
+ 
++// Sizes of the heaps, set up in allocHeapsOverride.cpp
++extern "C" u32 __ctru_heap_size;
++extern "C" u32 __ctru_linear_heap_size;
++
+ namespace Mausjagd {
+ 
+ static uint64 appStartTick = 0;
+@@ -57,6 +64,33 @@ static uint64 statsFlushMax = 0;
+ static uint64 statsUpdateTicks = 0;
+ static uint64 statsUpdateMax = 0;
+ 
++// Memory statistics, sampled by a timer so that peaks while loading a movie
++// are caught as well. Written by the timer thread only.
++static volatile uint32 memHeapUsed = 0;
++static volatile uint32 memHeapPeak = 0;
++static volatile uint32 memLinearFree = 0;
++static volatile uint32 memLinearMin = 0xFFFFFFFF;
++
++static void sampleMemory(void *) {
++	const struct mallinfo info = mallinfo();
++	const uint32 used = (uint32)info.uordblks;
++	const uint32 linear = linearSpaceFree();
++	memHeapUsed = used;
++	if (used > memHeapPeak)
++		memHeapPeak = used;
++	memLinearFree = linear;
++	if (linear < memLinearMin)
++		memLinearMin = linear;
++}
++
++void diagStartMemoryWatch() {
++	if (!diagOn || !g_system->getTimerManager())
++		return;
++	sampleMemory(nullptr);
++	g_system->getTimerManager()->installTimerProc(&sampleMemory, 20000, nullptr, "mausjagdDiagMemory");
++	debug("diag: memory: heap %u KB, linear heap %u KB", (unsigned)(__ctru_heap_size / 1024), (unsigned)(__ctru_linear_heap_size / 1024));
++}
++
+ // The system tick runs at the ARM11 base clock on Old and New 3DS
+ static uint32 ticksToMicros(uint64 ticks) {
+ 	return (uint32)(ticks * 1000000 / SYSCLOCK_ARM11);
+@@ -196,6 +230,9 @@ void diagFrame(uint32 dirtyPixels, uint64 flushTicks, uint64 updateTicks) {
+ 	      formatMillis(ticksToMicros(statsFlushMax)).c_str(),
+ 	      formatMillis(ticksToMicros(statsUpdateTicks / statsFrames)).c_str(),
+ 	      formatMillis(ticksToMicros(statsUpdateMax)).c_str());
++	debug("diag: memory: heap used %u KB (peak %u KB), linear free %u KB (min %u KB)",
++	      memHeapUsed / 1024, memHeapPeak / 1024, memLinearFree / 1024,
++	      memLinearMin == 0xFFFFFFFF ? 0 : memLinearMin / 1024);
+ 
+ 	statsStart = now;
+ 	statsFrames = 0;
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+index 4224190827..a8088c4445 100644
+--- a/backends/platform/3ds/mausjagd.h
++++ b/backends/platform/3ds/mausjagd.h
+@@ -95,6 +95,11 @@ const Common::StringArray &diagArgs();
+ // Options from the diag file that were dropped
+ const Common::StringArray &diagRejectedArgs();
+ 
++// Starts sampling heap and linear heap usage (diagnostic mode only); the
++// frame statistics then also report current and peak usage. Needs the timer
++// manager, so call it at the end of initBackend().
++void diagStartMemoryWatch();
++
+ // Called by the backend when the game resolution changes
+ void diagResolutionChanged(uint width, uint height);
+ 
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index 375bb79e55..be93a75c9f 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -190,6 +190,7 @@ void OSystem_3DS::initBackend() {
+ 		debug("diag: backend ready, diagnostic mode with options:%s", options.c_str());
+ 		for (const Common::String &option : Mausjagd::diagRejectedArgs())
+ 			warning("diag: option '%s' is not allowed in the diag file and was ignored", option.c_str());
++		Mausjagd::diagStartMemoryWatch();
+ 	}
+ #endif
+ }

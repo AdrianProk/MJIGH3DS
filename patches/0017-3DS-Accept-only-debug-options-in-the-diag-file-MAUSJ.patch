@@ -1,0 +1,113 @@
+From d6f00d76748f3626a7c0afb03115c620f2fc13ae Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:16:30 +0100
+Subject: [PATCH 17/22] 3DS: Accept only debug options in the diag file
+ (MAUSJAGD_PORT)
+
+The diag file passes extra command line options to the game start.
+Options like --savepath, --logfile or --config could make the app
+write outside of its folder. Only --debuglevel=, --debugflags=,
+--debug-channels-only and --start-movie= are accepted now; others are
+dropped with a warning in the log.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/mausjagd.cpp | 30 ++++++++++++++++++++++++++++++
+ backends/platform/3ds/mausjagd.h   |  7 ++++++-
+ backends/platform/3ds/osystem.cpp  |  3 +++
+ 3 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/backends/platform/3ds/mausjagd.cpp b/backends/platform/3ds/mausjagd.cpp
+index 0f6a23b3ad..52e65d2ab3 100644
+--- a/backends/platform/3ds/mausjagd.cpp
++++ b/backends/platform/3ds/mausjagd.cpp
+@@ -39,6 +39,7 @@ namespace Mausjagd {
+ static uint64 appStartTick = 0;
+ static bool diagOn = false;
+ static Common::StringArray diagOptions;
++static Common::StringArray diagRejected;
+ 
+ // First frame after a resolution change
+ static bool firstFramePending = false;
+@@ -96,11 +97,40 @@ static bool readDiagFile(const char *location) {
+ 	return true;
+ }
+ 
++// Only options that change what is logged or where the game starts are
++// accepted: anything that changes paths (--savepath, --logfile, --config ...)
++// could make the app write outside of its folder.
++static bool isAllowedOption(const Common::String &option) {
++	static const char *const allowedPrefixes[] = {
++		"--debuglevel=", "--debugflags=", "--start-movie="
++	};
++	if (option == "--debug-channels-only")
++		return true;
++	for (const char *prefix : allowedPrefixes) {
++		if (option.hasPrefix(prefix))
++			return true;
++	}
++	return false;
++}
++
+ void initDiag() {
+ 	diagOn = readDiagFile(MAUSJAGD_APP_DIR MAUSJAGD_DIAG_FILE) ||
+ 	         readDiagFile("romfs:/" MAUSJAGD_DIAG_FILE);
+ 	if (diagOn && diagOptions.empty())
+ 		addOptions(MAUSJAGD_DIAG_DEFAULT_ARGS);
++
++	Common::StringArray allowed;
++	for (const Common::String &option : diagOptions) {
++		if (isAllowedOption(option))
++			allowed.push_back(option);
++		else
++			diagRejected.push_back(option);
++	}
++	diagOptions = allowed;
++}
++
++const Common::StringArray &diagRejectedArgs() {
++	return diagRejected;
+ }
+ 
+ bool diagEnabled() {
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+index 8fb8de0ea6..4224190827 100644
+--- a/backends/platform/3ds/mausjagd.h
++++ b/backends/platform/3ds/mausjagd.h
+@@ -87,9 +87,14 @@ void initDiag();
+ 
+ bool diagEnabled();
+ 
+-// Extra command line options from the diag file
++// Extra command line options from the diag file. Only --debuglevel=,
++// --debugflags=, --debug-channels-only and --start-movie= are accepted;
++// options that could change paths are dropped (see diagRejectedArgs()).
+ const Common::StringArray &diagArgs();
+ 
++// Options from the diag file that were dropped
++const Common::StringArray &diagRejectedArgs();
++
+ // Called by the backend when the game resolution changes
+ void diagResolutionChanged(uint width, uint height);
+ 
+diff --git a/backends/platform/3ds/osystem.cpp b/backends/platform/3ds/osystem.cpp
+index a94ac3118c..375bb79e55 100644
+--- a/backends/platform/3ds/osystem.cpp
++++ b/backends/platform/3ds/osystem.cpp
+@@ -40,6 +40,7 @@
+ #ifdef MAUSJAGD_PORT
+ #include "backends/platform/3ds/mausjagd.h"
+ #include "common/debug.h"
++#include "common/textconsole.h"
+ #endif
+ #include <unistd.h>
+ #include <time.h>
+@@ -187,6 +188,8 @@ void OSystem_3DS::initBackend() {
+ 		for (const Common::String &option : Mausjagd::diagArgs())
+ 			options += " " + option;
+ 		debug("diag: backend ready, diagnostic mode with options:%s", options.c_str());
++		for (const Common::String &option : Mausjagd::diagRejectedArgs())
++			warning("diag: option '%s' is not allowed in the diag file and was ignored", option.c_str());
+ 	}
+ #endif
+ }

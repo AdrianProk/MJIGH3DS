@@ -1,0 +1,66 @@
+From 04b33e1f30600f589a8d5138f4a35739fe1640c5 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:30:59 +0100
+Subject: [PATCH 21/22] DIRECTOR: Avoid undefined behavior in the random number
+ generator
+
+RandomState relies on 32-bit two's complement wrap-around, but did the
+left shifts, multiplications and additions on signed integers, which
+is undefined behavior (reported by UBSan on every call of random).
+Do them unsigned instead; the right shifts stay arithmetic. A test
+over 20 million inputs gives the same results as the old code compiled
+with -fwrapv.
+
+init(32) also computed 1 << 32, which is undefined as well. The branch
+meant for this case now covers it; the value was not used.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/util.cpp | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/engines/director/util.cpp b/engines/director/util.cpp
+index c4fa2d0ec7..63311ee56c 100644
+--- a/engines/director/util.cpp
++++ b/engines/director/util.cpp
+@@ -1236,7 +1236,8 @@ int32 RandomState::getRandom(int32 range) {
+ 	if (_seed == 0)
+ 		init(32);
+ 
+-	res = perlin(genNextRandom() * 71);
++	// Multiply unsigned: the original relies on 32-bit wrap-around
++	res = perlin((int32)((uint32)genNextRandom() * 71u));
+ 
+ 	if (range > 0)
+ 		res = ((res & 0x7fffffff) % range);
+@@ -1252,7 +1253,7 @@ static const uint32 masks[31] = {
+ };
+ 
+ void RandomState::init(int len) {
+-	if (len < 2 || len > 32) {
++	if (len < 2 || len >= 32) {
+ 		len = 32;
+ 		_len = (uint32)-1; // Since we cannot shift 32 bits
+ 	} else {
+@@ -1273,13 +1274,14 @@ int32 RandomState::genNextRandom() {
+ }
+ 
+ int32 RandomState::perlin(int32 val) {
+-	int32 res;
+-
+-	val = ((val << 13) ^ val) - (val >> 21);
+-
+-	res = (val * (val * val * 15731 + 789221) + 1376312589) & 0x7fffffff;
+-	res += val;
+-	res = ((res << 13) ^ res) - (res >> 21);
++	// The original relies on 32-bit two's complement wrap-around. Left shifts,
++	// multiplications and additions are done unsigned, where wrap-around is
++	// defined; the right shifts stay arithmetic. The result is the same.
++	val = (int32)((((uint32)val << 13) ^ (uint32)val) - (uint32)(val >> 21));
++
++	const uint32 v = (uint32)val;
++	int32 res = (int32)(((v * (v * v * 15731u + 789221u) + 1376312589u) & 0x7fffffff) + v);
++	res = (int32)((((uint32)res << 13) ^ (uint32)res) - (uint32)(res >> 21));
+ 
+ 	return res;
+ }

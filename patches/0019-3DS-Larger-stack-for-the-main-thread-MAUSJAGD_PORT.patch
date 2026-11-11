@@ -1,0 +1,35 @@
+From 1ef8de333fcbd62563d4ef7582cfc28369c49d3a Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:23:28 +0100
+Subject: [PATCH 19/22] 3DS: Larger stack for the main thread (MAUSJAGD_PORT)
+
+The main thread had 64 KB of stack. Deep call chains, e.g. FreeType
+loading the GUI fonts for an error dialog (a known issue in the
+README) or nested Lingo handlers and film loops, could overflow it.
+The standalone build reserves 256 KB, which costs 192 KB of the
+application heap.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index 8a609572af..dd73ae2852 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -41,7 +41,14 @@ enum {
+ };
+ 
+ // Set the size of the stack.
++#ifdef MAUSJAGD_PORT
++// Standalone build: more room for deep call chains, e.g. FreeType loading the
++// GUI fonts for an error dialog, or nested Lingo handlers and film loops.
++// Costs 192 KB of the application heap.
++u32 __stacksize__ = 256 * 1024;
++#else
+ u32 __stacksize__ = 64 * 1024;
++#endif
+ 
+ // Set the size of the linear heap to allow a larger application heap.
+ // We do this in backends/platform/3ds/allocHeapsOverride.cpp

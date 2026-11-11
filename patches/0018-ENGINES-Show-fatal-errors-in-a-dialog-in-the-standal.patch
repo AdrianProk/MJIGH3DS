@@ -1,0 +1,49 @@
+From 54476c0c3586cdab444ad83466fa84f2bf30889f Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:16:30 +0100
+Subject: [PATCH 18/22] ENGINES: Show fatal errors in a dialog in the
+ standalone build (MAUSJAGD_PORT)
+
+On an error, the default handler opens the debugger console, which
+needs a keyboard. The standalone 3DS build has none, so the player was
+stuck until closing the app via HOME. Show the error in a message
+dialog instead; error() then ends the app as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/engine.cpp | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/engines/engine.cpp b/engines/engine.cpp
+index 7b918fe474..00a6b51c3e 100644
+--- a/engines/engine.cpp
++++ b/engines/engine.cpp
+@@ -83,6 +83,20 @@ static void defaultOutputFormatter(char *dst, const char *src, size_t dstSize) {
+ static bool defaultErrorHandler(const char *msg) {
+ 	bool handled = false;
+ 
++#ifdef MAUSJAGD_PORT
++	// Standalone game build: the debugger console needs a keyboard, which the
++	// device does not have. Show the error instead; error() then ends the app.
++	// If showing the dialog fails with another error, that one is not handled
++	// here again and simply ends the app.
++	static bool showingError = false;
++	if (g_engine && !showingError) {
++		showingError = true;
++		GUI::MessageDialog dialog(Common::U32String("Leider ist ein Fehler aufgetreten. Das Spiel wird beendet.\n\n") +
++		                          Common::U32String(msg));
++		dialog.runModal();
++		handled = true;
++	}
++#else
+ 	// Unless this error -originated- within the debugger itself, we
+ 	// now invoke the debugger, if available / supported.
+ 	if (g_engine) {
+@@ -104,6 +118,7 @@ static bool defaultErrorHandler(const char *msg) {
+ #endif
+ 
+ 	}
++#endif
+ 
+ 	return handled;
+ }

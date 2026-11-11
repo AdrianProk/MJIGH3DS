@@ -1,7 +1,7 @@
 From 323930ffc4ebcae719831f95a15d1d03aeafaa45 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 16:48:05 +0100
-Subject: [PATCH 15/15] GRAPHICS: Use an array as the queue of FloodFill
+Subject: [PATCH 15/22] GRAPHICS: Use an array as the queue of FloodFill
 
 FloodFill allocated a Common::Point for every filled pixel and kept it
 in a linked list. A fill can visit every pixel of the surface, so this

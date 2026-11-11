@@ -93,6 +93,15 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
     - Bei jedem Filmwechsel und jeder Änderung von `miceCaught` entsteht das Bild neu: links "Mäuse N von 19", in der Mitte die Karte, der Rahmen um den aktuellen Raum. Im Menü, in `INSTRUM` und `ORCH` gibt es keinen Rahmen.
   - **Testhilfe:** `mausjagd_debug_room=ARTIST` im Abschnitt `[scummvm]` der `scummvm.ini` tut so, als sei man in diesem Raum. Zusammen mit `--start-movie=GGMDMENU.DXR@14` in der `diag.txt` lässt sich der Rahmen ohne Eingaben prüfen. Der Direkteinstieg endet nach einigen Sekunden mit einem Lingo-Fehler (`shortlist` fehlt), Karte und Rahmen sind dann aber schon sichtbar.
   - **Speicher:** etwa 1 MB im linearen Speicher (Textur 512×256 RGBA plus Pixelpuffer); merken für S6.
+- **Härtung und Robustheit (Patches 0016–0022, PLAN.md §10):** Details und Tests stehen in `docs/security.md`.
+  - **0016:** Das Arbeitsverzeichnis ist `sdmc:/3ds/mausjagd/` statt `sdmc:/`. Relative Pfade der Engine, z. B. für Debug-Dumps, landen so im App-Ordner.
+  - **0017:** `diag.txt` nimmt nur `--debuglevel=`, `--debugflags=`, `--debug-channels-only` und `--start-movie=` an. Andere Optionen landen als Warnung im Log.
+  - **0018:** Ein fataler Fehler zeigt eine Meldung mit OK statt der Debugger-Konsole, danach beendet sich die App (`engines/engine.cpp`).
+  - **0019:** Der Hauptthread hat 256 KB Stack (`__stacksize__`).
+  - **0020:** Im Diagnosemodus misst ein Timer alle 20 ms Heap und linearen Speicher. Die Spitzenwerte stehen als `diag: memory: …` im Log.
+  - **0021:** Der Zufallsgenerator der Director-Engine kommt ohne undefiniertes Verhalten aus und liefert bit-gleiche Werte. Der Patch hat kein `#ifdef` und ist ein Kandidat für upstream.
+  - **0022:** Spielstände werden atomar geschrieben, erst in eine `.tmp`-Datei, dann umbenannt.
+- **Prüfung der fertigen Datei:** `py -I tools/inspect_3dsx.py dist/3ds/mausjagd.3dsx docs/inventory.md` prüft 3DSX-Kopf, SMDH und RomFS sowie die SHA-1 aller Spieldateien. Eine eingebettete `diag.txt` meldet es. Exit-Code 0 heißt: alles in Ordnung.
 - **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`). Mit `-MoreShots N -ShotIntervalMs X` entstehen zusätzliche Bilder, z. B. zum Prüfen des Blinkens.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`

@@ -1,0 +1,37 @@
+From cbd4f34589f4f87e6f308b0102212425670e7a40 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:31:54 +0100
+Subject: [PATCH 22/22] SAVES: Write save files atomically in the standalone
+ build (MAUSJAGD_PORT)
+
+DefaultSaveFileManager opened save files for writing directly. The game
+keeps all its saves in one file (saveinfo.txt), which FileIO rewrites
+on every save, so a crash or power loss while saving could destroy all
+saves. The standalone build now writes to a temporary file and renames
+it when it is complete, which StdioStream supports on the 3DS.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/saves/default/default-saves.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/backends/saves/default/default-saves.cpp b/backends/saves/default/default-saves.cpp
+index 95874945d5..b282c08ae7 100644
+--- a/backends/saves/default/default-saves.cpp
++++ b/backends/saves/default/default-saves.cpp
+@@ -164,7 +164,15 @@ Common::OutSaveFile *DefaultSaveFileManager::openForSaving(const Common::String
+ 	}
+ 
+ 	// Open the file for saving.
++#ifdef MAUSJAGD_PORT
++	// Standalone game build: write to a temporary file and rename it when it
++	// is complete, so that a crash or power loss while saving does not destroy
++	// the previous save. Director games like this one keep all saves in one
++	// file that FileIO rewrites on every save.
++	Common::SeekableWriteStream *const sf = fileNode.createWriteStream(true);
++#else
+ 	Common::SeekableWriteStream *const sf = fileNode.createWriteStream(false);
++#endif
+ 	if (!sf)
+ 		return nullptr;
+ 	Common::OutSaveFile *const result = new Common::OutSaveFile(compress ? Common::wrapCompressedWriteStream(sf) : sf);

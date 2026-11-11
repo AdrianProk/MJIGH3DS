@@ -178,9 +178,7 @@ Hintergrund, Befunde und Begründungen stehen in [PLAN.md](PLAN.md). Diese Liste
 - [ ] **T4.5** Test auf echter Hardware (Freigabe und Hilfe des Nutzers nötig): New 3DS und, falls vorhanden, Old 3DS, per `3dslink` oder als CIA.
   *Fertig, wenn:* die Spalten "New 3DS" und "Old 3DS" in der Matrix ausgefüllt sind.
   → **Stand 2026-11-10:** Der Nutzer hat einen **New 3DS / New 2DS XL** mit Homebrew Launcher. Getestet wird zuerst die `.3dsx`, Anleitung in `docs/compat-log.md`.
-    - **CIA zurückgestellt:** Der Nutzer wünscht ein CIA. Dafür fehlen `makerom` (3DSGuy/Project_CTR v0.19.0, SHA-256 `287b809d…`) und `bannertool` (carstene1ns/3ds-bannertool 1.2.3, SHA-256 `748519d2…`). Die Sicherheitsprüfung hat Download und Ausführung ohne ausdrückliche Freigabe abgelehnt ("Code from External").
-    - Gebaut wird dann mit `make scummvm.cia` (Regeln in `backends/platform/3ds/3ds.mk`).
-    - Die RSF hat `UniqueId 0xFF321`, dieselbe wie das offizielle ScummVM; eine eigene ID folgt mit der Paketierung.
+    - **CIA gebaut** (2026-11-11): Der Nutzer hat erlaubt, `makerom` und `bannertool` aus dem Quellcode zu bauen (`scripts/build-ctr-tools.sh`). `CIA=1 bash scripts/build-3ds.sh` erzeugt `dist/3ds/mausjagd.cia` mit eigener RSF (`config/mausjagd.rsf`, Title-ID `000400000F8D4A00`). Im Emulator installiert und gestartet; auf dem Gerät noch offen (`docs/build-3ds.md`, Abschnitt "CIA").
 
 ### Befunde aus dem ersten 3DS-Lauf (PLAN.md §9)
 
@@ -302,14 +300,15 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
 
 Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **vor jedem Test auf echter Hardware**, alle Aufgaben **vor dem Packaging** (Phase 6).
 
-- [ ] **S1** Patch-Review: Jeden eigenen Patch (`patches/`) gegen die Regeln aus PLAN.md §10 prüfen und das Ergebnis pro Patch in einer Checkliste festhalten. Prüfpunkte:
+- [x] **S1** Patch-Review: Jeden eigenen Patch (`patches/`) gegen die Regeln aus PLAN.md §10 prüfen und das Ergebnis pro Patch in einer Checkliste festhalten. Prüfpunkte:
   - Puffer und Längen
   - begrenzte Zeichenoperationen
   - Dateipfade
   - Fehlerbehandlung
   - Dienste
   *Fertig, wenn:* die Checkliste für alle Patches vollständig ist und gefundene Mängel behoben sind.
-- [ ] **S2** Sanitizer: Den Linux-Desktop-Build mit `-fsanitize=address,undefined` bauen (eigener Build-Ordner) und ohne Fenster durchlaufen lassen:
+  - **Erledigt** (2026-11-11): Checkliste für 0001–0022 in `docs/security.md` §7. Gefundene Lücken sind mit 0016–0018 und 0022 geschlossen. Für jeden neuen Patch die Tabelle ergänzen.
+- [x] **S2** Sanitizer: Den Linux-Desktop-Build mit `-fsanitize=address,undefined` bauen (eigener Build-Ordner) und ohne Fenster durchlaufen lassen:
   - Start und Menü
   - jeder Raum per `--start-movie` am Anfang und am Label `caught`
   - Intro- und Hilfevideos
@@ -317,27 +316,36 @@ Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **
 
   Funde in eigenem Code beheben, Funde in ScummVM dokumentieren und gegebenenfalls upstream melden (Freigabe nötig).
   *Fertig, wenn:* alle Läufe ohne Sanitizer-Meldung in eigenem Code durchgehen.
-- [ ] **S3** Statische Analyse: Die geänderten Dateien mit `cppcheck` (bzw. `clang-tidy`) prüfen. Den 3DS-Build auf Warnungen in diesen Dateien durchsehen (`-Wall -Wextra`).
+  - **Erledigt** (2026-11-11): 85 Läufe, ASan ohne Fund. UBSan meldete nur den Zufallsgenerator der Engine; behoben mit 0021 (bit-gleich), Gegenprobe sauber (`docs/security.md` §5). Upstream-Meldung von 0021 nur nach Freigabe.
+- [x] **S3** Statische Analyse: Die geänderten Dateien mit `cppcheck` (bzw. `clang-tidy`) prüfen. Den 3DS-Build auf Warnungen in diesen Dateien durchsehen (`-Wall -Wextra`).
   *Fertig, wenn:* keine offenen Befunde in eigenem Code bleiben.
-- [ ] **S4** Datei- und Dienstzugriffe:
+  - **Erledigt** (2026-11-11): statt `cppcheck` GCC `-fanalyzer` (Linux) und die Warnungen von devkitARM für die 3DS-Dateien; im eigenen Code keine Meldung (`docs/security.md` §4).
+- [x] **S4** Datei- und Dienstzugriffe:
   - Im Code nachweisen, dass Konfiguration, Log, Spielstände und FileIO nur unter `sdmc:/3ds/mausjagd/` schreiben.
   - In Azahar eine Spielsitzung mit Speichern fahren und den Inhalt der virtuellen SD vorher und nachher vergleichen: Nur der App-Ordner darf sich ändern.
   - Prüfen, welche Systemdienste der Port tatsächlich initialisiert.
   *Fertig, wenn:* keine Schreibzugriffe außerhalb des App-Ordners nachweisbar sind.
-- [ ] **S5** Fatale Fehler: Im Port statt der Debugger-Konsole eine verständliche Meldung zeigen und sauber beenden. Testfall: `--start-movie=ARTIST.DXR@1203` führt nach dem Video zu `Builtin 'getPos' did not return value`.
+  - **Erledigt** (2026-11-11): Binary-Analyse (Dienste, 27 Kernel-Aufrufe, nur SD-Archiv) und SD-Vergleiche, `docs/security.md` §2–3. Vor jedem Hardware-Test: `py -I tools/inspect_3dsx.py dist/3ds/mausjagd.3dsx docs/inventory.md` (Exit-Code 0) und Vergleich der SD vor und nach einem Kaltstart.
+- [x] **S5** Fatale Fehler: Im Port statt der Debugger-Konsole eine verständliche Meldung zeigen und sauber beenden. Testfall: `--start-movie=ARTIST.DXR@1203` führt nach dem Video zu `Builtin 'getPos' did not return value`.
   *Fertig, wenn:* der Testfall mit Meldung endet und die App sich zum HOME-Menü bzw. Homebrew Launcher beenden lässt.
+  - **Erledigt** (2026-11-11): Patch 0018, im Emulator mit dem Testfall geprüft (`docs/security.md` §3, H3).
 - [ ] **S6** Speicher, Stack und Datenintegrität:
   - Spitzenverbrauch auf dem Old 3DS (zusammen mit T5.6).
   - Verhalten bei fehlgeschlagener Speicheranforderung.
   - Stackgröße (64 KB im Hauptthread; FreeType-Hinweis aus `docs/build-3ds.md`).
   - Spielstand beim Abschalten während des Schreibens (zusammen mit T5.8).
   *Fertig, wenn:* die Grenzen gemessen sind und kein Fall zu kaputten Spielständen oder Abstürzen ohne Meldung führt.
+  - **Zwischenstand** (2026-11-11): Messung im Emulator (New- und Old-Modus) mit Patch 0020, Stack 256 KB (0019), atomare Spielstände (0022); siehe `docs/security.md` §6. Offen: Heap-Spitze auf einem echten Old 3DS (geschätzt 8 MB Reserve in ATTIC) und Abschalten während des Speicherns auf Hardware.
 - [ ] **S7** CIA-Rechte:
   - Die RSF auf die nötigen Dienste kürzen; nicht nötig sind z. B. `am:net`, `http:C`, `soc:U`, `cam:u`, `mic:u`, `boss:U`, `nim:aoc`.
   - Dateisystemzugriff nur `DirectSdmc`.
   - Eigene Title-ID außerhalb der Systembereiche (mit T6.2/T6.3).
   - Installieren und Deinstallieren zuerst im Emulator testen.
   *Fertig, wenn:* das CIA mit den gekürzten Rechten läuft und sich rückstandsfrei deinstallieren lässt.
+  → **Stand 2026-11-11 (Agent):**
+    - `config/mausjagd.rsf` gibt nur die 8 Dienste frei, die das Binary anfragt, dazu nur `DirectSdmc`, ohne SVC `Backdoor`. UniqueId ist `0xF8D4A`.
+    - Mit ctrtool am fertigen CIA geprüft (`docs/security.md` §9). In Azahar installiert und gestartet.
+    - **Offen:** Start auf echter Hardware (Azahar setzt die Dienst-Liste nicht durch) und Deinstallation.
 
 ## Phase 6: Packaging
 
@@ -347,6 +355,7 @@ Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **
   *Fertig, wenn:* die Dateien in `config/` liegen.
 - [ ] **T6.3** `scripts/build-3ds.sh` erweitern, sodass es `dist/mausjagd.3dsx` und `dist/mausjagd.cia` erzeugt und die Konfiguration einbettet.
   *Fertig, wenn:* beide Dateien reproduzierbar entstehen und die CIA sich installieren lässt (Emulator).
+  → **Teilweise** (2026-11-11): `CIA=1` erzeugt `dist/3ds/mausjagd.3dsx` und `dist/3ds/mausjagd.cia`; das CIA lässt sich in Azahar installieren. Es fehlen die eigene App-Identität (T6.2: Icon, Banner) und die Konfiguration aus T6.1.
 - [ ] **T6.4** `README.md` für Endnutzer auf Deutsch schreiben:
   - Voraussetzungen (3DS mit Custom Firmware, eigene Original-CD)
   - Extraktion mit `py -I tools/iso_extract.py extract … --profile game`

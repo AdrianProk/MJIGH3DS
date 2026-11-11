@@ -1,7 +1,7 @@
 From a485c59020109b1de4ef1486db7b94a64420702b Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 18:29:17 +0100
-Subject: [PATCH 04/15] 3DS: Create the app folder of the standalone build
+Subject: [PATCH 04/22] 3DS: Create the app folder of the standalone build
  (MAUSJAGD_PORT)
 
 Config, log and saves go to sdmc:/3ds/mausjagd/. Create the folder at

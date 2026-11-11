@@ -257,3 +257,14 @@ MJIGH3DS/
 - **Vor jedem Test auf echter Hardware** eine leichte Prüfung der neuen Patches (S1, S4).
 - **Vor dem Packaging (Phase 6)** alle Prüfungen.
 - Die Ergebnisse stehen in `docs/security.md`.
+
+**Stand 2026-11-11** (Details in `docs/security.md`):
+- **S1–S5 erledigt.**
+  - Die Binary-Analyse fand keinen Weg zu NAND, Systemkonfiguration oder Titelverwaltung.
+  - Geschrieben wird nur im App-Ordner; belegt im Code und durch einen Vergleich der SD-Karte im Emulator.
+  - Drei Lücken sind geschlossen: das Arbeitsverzeichnis `sdmc:/` (0016), beliebige Optionen in `diag.txt` (0017) und die Debugger-Konsole bei fatalen Fehlern (0018).
+  - AddressSanitizer fand in 85 Läufen nichts. UBSan fand nur den Zufallsgenerator der Engine, behoben mit 0021.
+  - Die statische Analyse meldete im eigenen Code nichts.
+- **S6 teilweise:** Spielstände werden atomar geschrieben (0022), der Stack hat 256 KB (0019), der Speicher ist im Emulator gemessen (0020). Offen: die Heap-Spitze auf einem echten Old 3DS, geschätzt 8 MB Reserve.
+- **S7 teilweise:** Die RSF ist gekürzt und das CIA im Emulator installiert. Offen: Start und Deinstallation auf echter Hardware.
+- **Absolute Sicherheit** gibt keine Analyse. Die Restrisiken stehen in `docs/security.md` §8.

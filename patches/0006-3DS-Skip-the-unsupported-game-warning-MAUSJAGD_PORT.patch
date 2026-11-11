@@ -1,7 +1,7 @@
 From 215225f51276b27943d4beadb195853b2bf39e11 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 20:03:13 +0100
-Subject: [PATCH 06/15] 3DS: Skip the unsupported game warning (MAUSJAGD_PORT)
+Subject: [PATCH 06/22] 3DS: Skip the unsupported game warning (MAUSJAGD_PORT)
 
 All Director games are marked unstable in the detection tables, so
 ScummVM asks before every start whether to run the game anyway. The

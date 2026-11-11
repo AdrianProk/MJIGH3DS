@@ -1,0 +1,44 @@
+From f11d6a33b7c71d23cf47483c6377536792d7497d Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 17:16:29 +0100
+Subject: [PATCH 16/22] 3DS: Use the app folder as working directory
+ (MAUSJAGD_PORT)
+
+The backend makes the root of the SD card the working directory. Files
+written with a relative path, e.g. the debug dumps of the Director
+engine, would end up there. The standalone build only writes to its
+own folder, so it now uses that folder as working directory.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/main.cpp | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/backends/platform/3ds/main.cpp b/backends/platform/3ds/main.cpp
+index c5ef979830..8a609572af 100644
+--- a/backends/platform/3ds/main.cpp
++++ b/backends/platform/3ds/main.cpp
+@@ -19,6 +19,12 @@
+  *
+  */
+ 
++#ifdef MAUSJAGD_PORT
++#define FORBIDDEN_SYMBOL_EXCEPTION_chdir
++#define FORBIDDEN_SYMBOL_EXCEPTION_unistd_h
++#include <unistd.h>
++#endif
++
+ #include "backends/platform/3ds/osystem.h"
+ #include "backends/plugins/3ds/3ds-provider.h"
+ #ifdef MAUSJAGD_PORT
+@@ -94,6 +100,10 @@ int main(int argc, char *argv[]) {
+ 	Common::FSNode appDir(Common::Path(MAUSJAGD_APP_DIR, '/'));
+ 	if (!appDir.exists())
+ 		appDir.createDirectory();
++	// The backend makes the root of the SD card the working directory. Use the
++	// app folder instead, so that nothing written with a relative path (e.g.
++	// debug dumps of the engine) ends up outside of it.
++	chdir(MAUSJAGD_APP_DIR);
+ 	// Diagnostic mode, see mausjagd.h
+ 	Mausjagd::initDiag();
+ 	if (argc <= 1) {

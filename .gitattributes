@@ -3,3 +3,5 @@
 *.mk text eol=lf
 # Patch-Serie für den ScummVM-Fork: unverändert lassen, damit git am sie anwenden kann
 *.patch -text
+# RSF-Dateien liest makerom unter Linux
+*.rsf text eol=lf

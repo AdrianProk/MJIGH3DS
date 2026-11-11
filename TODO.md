@@ -352,10 +352,11 @@ Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **
 - [ ] **T6.1** Vorkonfiguration in `config/`: eine `scummvm.ini` mit dem Spieleintrag (Pfad `sdmc:/3ds/mausjagd/game/`) und den 3DS-Einstellungen aus T5.1–T5.4. Prüfen, ob ScummVM einen Direktstart unterstützt (z. B. eine `scummvm-autorun`-Datei), und ihn einbauen, sodass die App ohne Launcher ins Spiel geht.
   *Fertig, wenn:* ein Start der App direkt im Spiel landet.
 - [ ] **T6.2** App-Identität: Name, eigene eindeutige Title-ID sowie selbst gestaltetes Icon (48×48) und Banner (256×128) plus Banner-Sound. Keine Grafiken aus dem Spiel verwenden (PLAN.md §7).
+  → **Eigener Gebrauch** (2026-11-11, Wunsch des Nutzers): Builds mit eingebetteten Spieldaten bekommen Icon, Banner und Banner-Ton aus Titelbild und Titelmelodie des Spiels (`scripts/make_app_art.py`, `APP_ART=1`). Diese Dateien entstehen nur im Build-Ordner. Die Title-ID steht (`config/mausjagd.rsf`). **Offen:** selbst gestaltete Fassung für eine weitergebbare App.
   *Fertig, wenn:* die Dateien in `config/` liegen.
 - [ ] **T6.3** `scripts/build-3ds.sh` erweitern, sodass es `dist/mausjagd.3dsx` und `dist/mausjagd.cia` erzeugt und die Konfiguration einbettet.
   *Fertig, wenn:* beide Dateien reproduzierbar entstehen und die CIA sich installieren lässt (Emulator).
-  → **Teilweise** (2026-11-11): `CIA=1` erzeugt `dist/3ds/mausjagd.3dsx` und `dist/3ds/mausjagd.cia`; das CIA lässt sich in Azahar installieren. Es fehlen die eigene App-Identität (T6.2: Icon, Banner) und die Konfiguration aus T6.1.
+  → **Teilweise** (2026-11-11): `CIA=1` erzeugt `dist/3ds/mausjagd.3dsx` und `dist/3ds/mausjagd.cia`; das CIA lässt sich in Azahar installieren. Icon und Banner kommen beim eigenen Build aus dem Spiel (T6.2). Es fehlen die selbst gestaltete Fassung für eine Weitergabe und die Konfiguration aus T6.1.
 - [ ] **T6.4** `README.md` für Endnutzer auf Deutsch schreiben:
   - Voraussetzungen (3DS mit Custom Firmware, eigene Original-CD)
   - Extraktion mit `py -I tools/iso_extract.py extract … --profile game`

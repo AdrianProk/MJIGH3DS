@@ -18,8 +18,14 @@
 #                 Gleiches Binary wie ohne DIAG. Ohne Neubau geht es auch mit sdmc:/3ds/mausjagd/diag.txt.
 #   DIAG_ARGS     Startoptionen für den Diagnosemodus, Standard leer = Vorgabe im Code
 #                 (MAUSJAGD_DIAG_DEFAULT_ARGS: --debuglevel=1 --debugflags=loading)
+#   CIA           nur Port: 1 = zusätzlich dist/3ds/mausjagd.cia (bzw. mausjagd-diag.cia) mit
+#                 config/mausjagd.rsf. Braucht makerom und bannertool (scripts/build-ctr-tools.sh).
+#   CTR_TOOLS     Ordner mit bin/makerom und bin/bannertool, Standard ~/ctr-tools
+#   APP_ART       nur Port mit EMBED_GAME=1: 1 = Icon, Banner und Banner-Ton aus Titelbild und
+#                 Titelmelodie des Spiels (scripts/make_app_art.py, Standard), 0 = Vorgaben von ScummVM.
+#                 Ohne eingebettete Spieldaten gelten immer die Vorgaben von ScummVM.
 #
-# Achtung: Mit EMBED_GAME=1 enthält die .3dsx das Spiel. Nur für den eigenen Gebrauch,
+# Achtung: Mit EMBED_GAME=1 enthalten .3dsx und .cia das Spiel. Nur für den eigenen Gebrauch,
 # nicht weitergeben (dist/ ist ignoriert).
 set -euo pipefail
 
@@ -47,6 +53,17 @@ DIAG="${DIAG:-0}"
 if [ "$DIAG" = 1 ]; then
   [ "$PORT" = 1 ] || { echo "DIAG=1 gibt es nur für den Port-Build" >&2; exit 1; }
   OUT=mausjagd-diag.3dsx
+fi
+
+CIA="${CIA:-0}"
+if [ "$CIA" = 1 ]; then
+  # Das normale ScummVM hätte die UniqueId des offiziellen CIA und würde es überschreiben
+  [ "$PORT" = 1 ] || { echo "CIA=1 gibt es nur für den Port-Build" >&2; exit 1; }
+  CTR_TOOLS="${CTR_TOOLS:-$HOME/ctr-tools}"
+  CIA_TOOLS=(MAKEROM="$CTR_TOOLS/bin/makerom" BANNERTOOL="$CTR_TOOLS/bin/bannertool")
+  for t in makerom bannertool; do
+    [ -x "$CTR_TOOLS/bin/$t" ] || { echo "$t fehlt unter $CTR_TOOLS/bin (scripts/build-ctr-tools.sh)" >&2; exit 1; }
+  done
 fi
 
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
@@ -80,6 +97,14 @@ if [ "$PORT" = 1 ] && [ "${EMBED_GAME:-1}" = 1 ]; then
   python3 -I "$REPO/scripts/stage_game_data.py" "$GAME_DIR" "$REPO/docs/inventory.md" "$STAGE"
   ROMFS_EXTRA+=("$STAGE")
   EMBEDDED=1
+  if [ "${APP_ART:-1}" = 1 ]; then
+    # Icon, Banner und Banner-Ton aus dem Titelbild und der Titelmelodie des Spiels. Nur bei
+    # eingebetteten Spieldaten: Dieser Build ist ohnehin nur für den eigenen Gebrauch (PLAN.md §7).
+    ART="$BUILD/app-art"
+    echo "=== App-Grafik aus den Spieldaten nach $ART"
+    python3 -I "$REPO/scripts/make_app_art.py" "$GAME_DIR" "$ART"
+    APP_VARS+=(APP_ICON="$ART/icon.png" APP_BANNER_IMAGE="$ART/banner.png" APP_BANNER_AUDIO="$ART/banner.wav")
+  fi
 fi
 if [ "$DIAG" = 1 ]; then
   # Diagnosemodus, siehe backends/platform/3ds/mausjagd.h im Fork
@@ -102,9 +127,21 @@ if [ "$EMBEDDED" = 1 ]; then
   echo "RomFS-Spieldaten: $(find romfs/game -type f | wc -l) Dateien, $(du -sh romfs/game | cut -f1)"
 fi
 
+if [ "$CIA" = 1 ]; then
+  # Gleiche RomFS und gleiches SMDH wie die .3dsx; Banner wie das Icon (siehe APP_ART)
+  echo "=== CIA mit $REPO/config/mausjagd.rsf"
+  rm -f scummvm.bnr scummvm.cia
+  make scummvm.cia "${APP_VARS[@]}" "${ROMFS_VARS[@]}" "${CIA_TOOLS[@]}" \
+    APP_RSF="$REPO/config/mausjagd.rsf"
+fi
+
 dist="$REPO/dist/3ds"
 mkdir -p "$dist"
 cp scummvm.3dsx "$dist/$OUT"
 git -C "$SRC" rev-parse HEAD > "$dist/SCUMMVM_COMMIT.txt"
 ls -la "$dist/$OUT"
-echo "=== fertig: $dist/$OUT"
+if [ "$CIA" = 1 ]; then
+  cp scummvm.cia "$dist/${OUT%.3dsx}.cia"
+  ls -la "$dist/${OUT%.3dsx}.cia"
+fi
+echo "=== fertig: $dist/$OUT$([ "$CIA" = 1 ] && echo " und ${OUT%.3dsx}.cia")"

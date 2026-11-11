@@ -176,5 +176,5 @@ Gebaut mit `CIA=1 bash scripts/build-3ds.sh` und `config/mausjagd.rsf`, geprüft
   - `azahar.exe -i …\mausjagd.cia` installiert nach `title/00040000/0f8d4a00/content/` (`.tmd` und `.app`, 202 MB). Der Prozess beendet sich danach nicht selbst und muss geschlossen werden.
   - Der installierte Inhalt (`.app`, mit den Rechten aus dem CIA) startet über `scripts/azahar-run.ps1 -Game …` bis zum Titelbild; das Log gleicht dem der `.3dsx`.
 - **Nicht geprüft:** Azahar setzt die Dienst-Liste nicht durch. Ob die gekürzten Rechte reichen, zeigt erst echte Hardware. Die rückstandsfreie Deinstallation ist ebenfalls noch offen.
-- **Banner** (Bild und Ton im HOME-Menü) vorerst von ScummVM, eigenes folgt mit T6.2.
+- **Banner und Icon** stammen bei eingebetteten Spieldaten aus Titelbild und Titelmelodie des Spiels (`scripts/make_app_art.py`, `docs/build-3ds.md`). Sie entstehen nur im Build-Ordner, nicht im Repo (PLAN.md §7).
 - **Vorteil gegenüber der `.3dsx`:** Das CIA startet immer als Anwendung mit vollem Speicher; das Applet-Risiko aus Abschnitt 8 entfällt.

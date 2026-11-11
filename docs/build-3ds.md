@@ -25,7 +25,7 @@ python3 -I scripts/fetch_docker_subtree.py devkitpro/devkitarm 20260610 \
 - `arm-none-eabi-gcc (devkitARM) 16.1.0`, libctru, citro3d, citro2d
 - Portlibs unter `portlibs/3ds`: zlib, libpng, freetype, libjpeg(-turbo), libmad, libogg, libvorbisidec (Tremor), FLAC, curl, theora und weitere
 - Werkzeuge: `3dsxtool`, `smdhtool`, `3dslink`, `picasso`, `tex3ds`, `mkbcfnt`
-- **Es fehlen** `bannertool` und `makerom`. Sie werden nur für das CIA-Format gebraucht, nicht für `.3dsx`.
+- **Es fehlen** `bannertool` und `makerom`. Sie werden nur für das CIA-Format gebraucht, nicht für `.3dsx`; dafür gibt es `scripts/build-ctr-tools.sh` (Abschnitt "CIA").
 - Übersprungen wurde nur der Symlink `pacman/share/pacman/keyrings`; er ist für den Build unwichtig.
 
 **Pfad:** Die Toolchain hat `/opt/devkitpro` an vielen Stellen fest eingetragen: in den `.pc`-Dateien, in `.la`-Dateien und in den Binärdateien. Deshalb gibt es einmalig einen Symlink, angelegt als root:
@@ -103,6 +103,34 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
   - **0022:** Spielstände werden atomar geschrieben, erst in eine `.tmp`-Datei, dann umbenannt.
 - **Prüfung der fertigen Datei:** `py -I tools/inspect_3dsx.py dist/3ds/mausjagd.3dsx docs/inventory.md` prüft 3DSX-Kopf, SMDH und RomFS sowie die SHA-1 aller Spieldateien. Eine eingebettete `diag.txt` meldet es. Exit-Code 0 heißt: alles in Ordnung.
 - **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`). Mit `-MoreShots N -ShotIntervalMs X` entstehen zusätzliche Bilder, z. B. zum Prüfen des Blinkens.
+
+### CIA (`CIA=1`, Wunsch des Nutzers, 2026-11-11)
+
+```bash
+bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-ctr-tools.sh          # einmalig: makerom, bannertool, ctrtool
+CIA=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh          # -> dist/3ds/mausjagd.3dsx und mausjagd.cia
+```
+
+- **Werkzeuge aus dem Quellcode** (Entscheidung des Nutzers; Release-Binaries wurden nicht verwendet):
+  - `scripts/build-ctr-tools.sh` klont die festen Tags, prüft den Commit und baut nach `~/ctr-tools/bin`; die Herkunft steht in `~/ctr-tools/SOURCES.txt`.
+  - makerom 0.19.0 und ctrtool 1.3.0 kommen aus 3DSGuy/Project_CTR, Commit `e8f5f529`; die Abhängigkeiten liegen im Repo.
+  - bannertool 1.2.3 kommt aus carstene1ns/3ds-bannertool, Commit `da573b13`. Es wird ohne cmake direkt mit g++ übersetzt, wie in der `CMakeLists.txt` beschrieben. Das optionale Ziel `update-libs` (lädt Bibliotheken nach) bleibt ungenutzt.
+  - SHA-256 (2026-11-11): makerom `a0b5b4b2…`, ctrtool `98c02fe8…`, bannertool `5fe0dbde…`. bannertool baut bit-gleich nach; makerom trägt die Bauzeit im Binary.
+- **Build:** `make scummvm.cia` aus `backends/platform/3ds/3ds.mk` mit `APP_RSF=config/mausjagd.rsf` sowie `MAKEROM`/`BANNERTOOL` aus `~/ctr-tools`. ELF, SMDH und RomFS sind dieselben wie bei der `.3dsx`, das Spiel steckt also auch im CIA. **Nur für den eigenen Gebrauch.** `DIAG=1` ergibt `mausjagd-diag.cia` mit derselben Title-ID, also überschreibt die Installation das normale CIA. Für `MAUSJAGD_PORT=0` gibt es kein CIA, weil es die Title-ID des offiziellen ScummVM hätte.
+- **`config/mausjagd.rsf`:**
+  - Grundlage ist die Vorlage von ScummVM. UniqueId `0xF8D4A`, also Title-ID `000400000F8D4A00`.
+  - Freigegeben sind nur die 8 Dienste, die das Binary anfragt; die Vorlage hat 30.
+  - Ohne SVC `Backdoor`. Details und Prüfung mit ctrtool in `docs/security.md` §9 (S7).
+- **Icon, Banner und Banner-Ton aus dem Spiel** (`APP_ART=1`, Standard bei eingebetteten Spieldaten; Wunsch des Nutzers, 2026-11-11):
+  - `scripts/make_app_art.py` liest den in `MAUSJAGD.EXE` eingebetteten Startfilm. Es dekodiert Cast 9 "german splashscreen" (640×480, 8 Bit, RLE, Palette Cast 8) und Cast 6 "Theme.aif" (`snd`, 22 050 Hz, 8 Bit, 12,4 s). Dafür reicht die Standardbibliothek; die Chunks liest `tools/dxr_inventory.py`.
+  - **Banner** 256×128: obere zwei Drittel des Titelbilds (Logo, Hotelfassade, Portier). **Icon** 48×48: die grünen Mäuse in der Hand des Pagen; es gilt auch für die `.3dsx`. Beide sind mit Flächenmittel verkleinert.
+  - **Banner-Ton:** die ersten 3,0 s der Titelmelodie als 16-Bit-PCM, auf 90 % Spitzenpegel angehoben und 0,35 s ausgeblendet (die Phrase endet bei 3,25 s).
+  - Die Dateien entstehen nur in `~/build/3ds/app-art` und kommen nie ins Repo (PLAN.md §7). Laut §7 sind Spielgrafiken nur in einer weitergegebenen App tabu; dieser Build ist ohnehin nur für den eigenen Gebrauch.
+  - Mit `APP_ART=0` oder `EMBED_GAME=0` gelten Icon und Banner von ScummVM. Ein selbst gestaltetes Icon und Banner für eine weitergebbare Fassung bleibt T6.2.
+  - Geprüft: `banner` und `icon` im ExeFS des CIA sind byte-gleich mit den neu erzeugten `scummvm.bnr`/`scummvm.smdh`. Das in Azahar neu installierte CIA startet.
+- **Ergebnis:** `mausjagd.cia` 202 MB, `.3dsx` 201 MB.
+- **Azahar:** `azahar.exe -i <cia>` installiert, beendet sich danach aber nicht selbst. Danach steht das Spiel in der Liste der installierten Titel. Für einen automatischen Lauf geht auch `scripts/azahar-run.ps1 -Game <…\title\00040000\0f8d4a00\content\*.app>`.
+- **Auf dem 3DS:** `mausjagd.cia` auf die SD-Karte kopieren und z. B. mit FBI installieren. Danach startet das Spiel vom HOME-Menü. Konfiguration, Log und Spielstände liegen wie bei der `.3dsx` in `SD:\3ds\mausjagd\`; beide Fassungen teilen sie sich.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.

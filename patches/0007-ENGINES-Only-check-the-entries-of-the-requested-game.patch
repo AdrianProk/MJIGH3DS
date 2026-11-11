@@ -1,7 +1,7 @@
 From fcf8a99c4edc922b365ea2fc4d5ff107e0bbbe3b Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 21:43:28 +0100
-Subject: [PATCH 07/10] ENGINES: Only check the entries of the requested game
+Subject: [PATCH 07/14] ENGINES: Only check the entries of the requested game
  (MAUSJAGD_PORT)
 
 identifyGame() only accepts a match with the requested game ID, but

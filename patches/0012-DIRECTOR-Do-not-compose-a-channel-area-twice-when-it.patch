@@ -1,0 +1,32 @@
+From e6a295abd66b2ca0652d0eb90694b54bb1e84f66 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 06:16:28 +0100
+Subject: [PATCH 12/14] DIRECTOR: Do not compose a channel area twice when it
+ stays in place
+
+Window::render() redraws the area a changed channel has left and then
+its new area. For a sprite or film loop that animates in place, both
+areas are the same, so every overlapping channel was composed twice.
+Skip the old area when the new one covers it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/window.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/engines/director/window.cpp b/engines/director/window.cpp
+index 1fb728f394..8ad538be55 100644
+--- a/engines/director/window.cpp
++++ b/engines/director/window.cpp
+@@ -279,7 +279,10 @@ bool Window::render(bool forceRedraw, Graphics::ManagedSurface *blitTo) {
+ 
+ 		debugC(7, kDebugImages, "Window::render(): drawing channel %d", (int)i);
+ 
+-		if (!chan->_lastTrail) {
++		// Redraw the area the sprite has left, unless the new area covers it
++		// anyway: an animated sprite or film loop that stays in place would
++		// otherwise compose the same area twice, which is slow on small devices
++		if (!chan->_lastTrail && !bbox.contains(chan->_lastRenderedBbox)) {
+ 			renderChannel(chan, chan->_lastRenderedBbox, blitTo, chan == hiliteChannel);
+ 		}
+ 		renderChannel(chan, bbox, blitTo, chan == hiliteChannel);

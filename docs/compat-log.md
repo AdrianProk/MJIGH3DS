@@ -4,6 +4,21 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-11 – SNOOKER: Farbrauschen und 5 fps behoben (B1/B2, Agent)
+
+- **Nutzer:**
+  - Die Karte im echten Spiel funktioniert: Zähler auf 1, Rahmen um den Raum.
+  - Im zweiten Raum (SNOOKER) wird das Bild beim Anklicken verrauscht und bunt (Screenshot), die Bildrate fällt auf 5 fps und bleibt dort.
+- **Ursachen und Fixes** (Details in `docs/performance.md`):
+  - **Farbrauschen:** Animationsframes verweisen auf die gelöschte Palette 301. Die Engine fiel auf die Mac-Systempalette zurück und rechnete alle Bitmaps um. Patch 0011 behält die aktuelle Palette, auch am Desktop reproduziert.
+  - **5 fps:** Die Leerlauf-Animationen kosteten auf dem 3DS 123–185 ms pro Zeichendurchgang: doppeltes Rendern, Pixel-für-Pixel-Ink-Blits und ein ineffizientes `transBlit`. Mit den Patches 0012–0014 sind es **11 ms**, der Raum läuft mit 12 fps.
+- **Damit ist B1/B2 vermutlich erklärt:** Rauschen und 5 fps aus dem ersten Lauf passen genau zu diesem Muster. Damals wurde es dem Fangen zugeschrieben; tatsächlich trat es in Räumen mit diesen Animationen auf.
+- **Geprüft in Azahar:**
+  - SNOOKER von Frame 1 mit Animationen: farbtreu, 43 Durchläufe/s.
+  - ARTIST-Video unverzerrt (15,8/s).
+  - Hotelkarte unverändert.
+- **Offen:** Rückmeldung aus dem echten Spiel; der Old 3DS braucht echte Hardware.
+
 ### 2026-11-11 – Hotelkarte auf dem oberen Bildschirm (T5.1, Agent)
 
 - **Build:** `mausjagd.3dsx`, Fork `1ab81ca9da`, Patches 0001–0010.

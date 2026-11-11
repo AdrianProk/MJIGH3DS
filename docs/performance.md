@@ -8,6 +8,44 @@ Messwerte zu Startzeit, Bildrate und Speicher. Neueste Einträge oben. Werte aus
 - **Automatischer Lauf im Emulator:** `scripts/azahar-run.ps1` startet Azahar mit der `.3dsx`, wartet auf zwei Log-Marken, nimmt je ein Bild des Azahar-Fensters auf (nach `dist/screens/`) und beendet Azahar wieder. Die ausgegebenen Zeiten sind Wanduhr-Zeiten ab dem Start von Azahar, also einschließlich des Emulatorstarts (etwa 2,5 s).
 - **Desktop zum Vergleich:** eigener Linux-Build ohne Fenster (`docs/build-desktop.md`).
 
+## T4.12 – Raumanimationen in SNOOKER: 5 fps und Farbrauschen (2026-11-11, Azahar 2126.2)
+
+**Befund des Nutzers:**
+- Im zweiten Raum (SNOOKER) wird das Bild verrauscht und bunt, "sobald man was anklickt".
+- Die Bildrate fällt auf 5 fps; das Rauschen verschwindet danach wieder, die 5 fps bleiben.
+- Damit war B2 nicht behoben: Die frühere Messung lief in ARTIST, das diese Animationen nicht hat.
+
+**Zwei Ursachen:**
+
+1. **Farbrauschen: gelöschte Palette (Patch 0011).**
+   - Mehrere Animationsframes von SNOOKER verweisen im Palettenkanal auf Cast-Member 301; SNOOKER hat nur Member bis 246.
+   - `Score::setLastPalette()` fiel dann über die zwischengespeicherte Palette (ebenfalls 301) auf die Standardpalette des Films zurück, die Mac-Systempalette. Alle Bitmaps des Raums wurden per Dithering auf sie umgerechnet.
+   - Fix: Bei gelöschter Palette bleibt die aktuelle. Danach ist das Bild farbtreu, die 5 fps bleiben aber.
+2. **5 fps: Zeichenaufwand der Leerlauf-Animationen (Patches 0012–0014).**
+   - Der Film-Loop in Kanal 20 (523×317) wird in jedem Frame neu zusammengesetzt, aus 20 überlappenden Kanälen.
+   - Direkteinstieg in die Leerlauf-Schleifen (`SNOOKER.DXR@12` und `@51`): auch ohne Palette 301 sofort 3–5 fps. Die Palette war also nur zeitlich zufällig beteiligt.
+   - Messung auf dem 3DS (Stufe 7, `images`): **ein Zeichendurchgang 123–185 ms**.
+   - Profil am Desktop (gprof mit Aufrufzählern; die Zeitmessung geht unter WSL1 nicht) für rund 25 s:
+     - `Graphics::transBlit<byte, byte>`: 97,7 Mio. Pixel, pro Pixel `colorToRGB()` (Ergebnis ungenutzt) und `hasTransparentColor()`. `MacWindow::draw()` setzt damit bei jeder Änderung das ganze Bühnenfenster zusammen.
+     - `DirectorPlotData::inkBlitSurface()`: 65,8 Mio. Pixel über den virtuellen `InkPrimitives::drawPoint()`, für alle maskierten Sprites (Matte).
+     - Dazu wurde jeder Kanal, der sich an Ort und Stelle ändert, doppelt gerendert (alte und neue Position sind gleich).
+
+**Fixes:**
+- **0012:** Alte Position nicht neu zeichnen, wenn die neue sie abdeckt.
+- **0013:** Schneller 8-Bit-Pfad für Copy mit Maske, Matte, Mask, Blend ohne Alpha und Background Transparent. Er greift nur bei vollständig gültigen Grenzen, sonst gilt der alte Pfad.
+- **0014:** `transBlit` dekodiert Farben nur noch bei Bedarf; 8 Bit nach 8 Bit kopiert direkt.
+- Alle drei liefern dasselbe Bild und sind allgemeine Verbesserungen (upstream-Kandidaten).
+
+| SNOOKER, Leerlauf-Animation | vorher | nachher |
+|---|---:|---:|
+| Zeichendurchgang (`Window::render`) | 123–185 ms | **11 ms** |
+| Durchläufe der Hauptschleife | 4,5–4,9/s | **43/s** |
+| Score-Tempo | ca. 4–5 fps | **12 fps** (Original) |
+| übertragene Fläche pro Durchlauf | 307.200 px | 79.000 px im Schnitt |
+
+- **Gegenprobe:** Missgeschick-Video ARTIST jetzt 15,8 Durchläufe/s bei 12 fps Video (vorher 11,4–12,3/s); Bild unverzerrt. Hotelkarte unverändert.
+- **Noch möglich:** `MacWindow::draw()` kopiert bei jeder Änderung das ganze Fenster (7 ms im Backend). Nur geänderte Bereiche zu übertragen, wäre der nächste Schritt, falls der Old 3DS es braucht.
+
 ## T4.12 – Bildrate der Missgeschick-Videos (2026-11-10, Azahar 2126.2)
 
 **Verfahren:** Ohne Eingaben über die Diag-Datei direkt ins Video springen: `--debuglevel=2 --debugflags=images --start-movie=ARTIST.DXR@1203` (Label `caught`), Lauf mit `scripts/azahar-run.ps1 -AfterGameSeconds 25`. `artist.mov` hat 12 fps, 640×480, SMC.

@@ -247,6 +247,11 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - ARTIST-Video mit 11,4–12,3 fps (Original 12 fps); das Backend braucht 7,6 ms pro Frame. Laut Nutzer ist B2 behoben.
     - Gemessen ohne Eingaben über `diag.txt` mit `--start-movie=ARTIST.DXR@1203`; Werte in `docs/performance.md`.
     - **Offen:** Old 3DS auf echter Hardware. Der Old-3DS-Modus von Azahar liefert dieselben Werte wie der New-3DS-Modus und taugt dafür nicht.
+  → **Nachtrag** (2026-11-11): Der Nutzer sah in SNOOKER wieder 5 fps und Farbrauschen. Das war die eigentliche Ursache von B1/B2, nicht das Video:
+    - **Palette:** Animationsframes verweisen auf die gelöschte Palette 301 (Patch 0011).
+    - **Zeichnen:** Die Leerlauf-Animationen kosteten 123–185 ms pro Zeichendurchgang (Patches 0012–0014).
+    - **Jetzt:** 11 ms pro Durchgang, SNOOKER läuft mit 12 fps und farbtreu. Messwerte in `docs/performance.md`.
+    - **Offen:** Rückmeldung aus dem echten Spiel (alle Räume) und der Old 3DS.
 
 ## Phase 5: 3DS-Anpassung
 

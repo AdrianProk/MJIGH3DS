@@ -1,0 +1,86 @@
+From 2284a3dad0f9defd03f2c2e8cd87d3ef479c3ddf Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 06:16:29 +0100
+Subject: [PATCH 14/14] GRAPHICS: Speed up 8-bit transBlit
+
+transBlit() decoded every destination pixel with colorToRGB() although
+the result was only used for 32-bit transparency, and asked
+hasTransparentColor() for every pixel. Decode only when needed, check
+the transparent color once, and copy 8-bit to 8-bit pixels directly,
+as transBlitPixel<byte, byte> does. MacWindow uses this to compose
+every window, e.g. the Director stage, on each redraw.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ graphics/managed_surface.cpp | 44 +++++++++++++++++++++++++++++++-----
+ 1 file changed, 38 insertions(+), 6 deletions(-)
+
+diff --git a/graphics/managed_surface.cpp b/graphics/managed_surface.cpp
+index 03c7a8b670..85e5cd223d 100644
+--- a/graphics/managed_surface.cpp
++++ b/graphics/managed_surface.cpp
+@@ -896,9 +896,43 @@ void transBlit(const Surface &src, const Common::Rect &srcRect, ManagedSurface &
+ 	if (isSrcTrans32) {
+ 		src.format.colorToRGB(transColor, rst, gst, bst);
+ 	}
+-	bool isDestTrans32 = dest.format.aBits() != 0 && dest.hasTransparentColor();
++	const bool destHasTransColor = dest.hasTransparentColor();
++	const uint32 destTransColor = destHasTransColor ? dest.getTransparentColor() : 0;
++	bool isDestTrans32 = dest.format.aBits() != 0 && destHasTransColor;
+ 	if (isDestTrans32) {
+-		dest.format.colorToRGB(dest.getTransparentColor(), rdt, gdt, bdt);
++		dest.format.colorToRGB(destTransColor, rdt, gdt, bdt);
++	}
++
++	// Fast path for 8-bit to 8-bit: transBlitPixel<byte, byte> only copies the
++	// (looked up) source pixel, so no colors need to be decoded per pixel
++	if (sizeof(TSRC) == 1 && sizeof(TDEST) == 1 && !isSrcTrans32 && !isDestTrans32) {
++		for (int destY = destRect.top, scaleYCtr = 0; destY < destRect.bottom; ++destY, scaleYCtr += scaleY) {
++			if (destY < 0 || destY >= dest.h)
++				continue;
++			const TSRC *srcLine = (const TSRC *)src.getBasePtr(srcRect.left, scaleYCtr / SCALE_THRESHOLD + srcRect.top);
++			TDEST *destLine = (TDEST *)dest.getBasePtr(destRect.left, destY);
++
++			for (int destX = destRect.left, xCtr = 0, scaleXCtr = 0; destX < destRect.right; ++destX, ++xCtr, scaleXCtr += scaleX) {
++				if (destX < 0 || destX >= dest.w)
++					continue;
++
++				const TSRC srcVal = srcLine[flipped ? src.w - scaleXCtr / SCALE_THRESHOLD - 1 : scaleXCtr / SCALE_THRESHOLD];
++				if (srcVal == transColor)
++					continue;
++
++				TDEST &destVal = destLine[xCtr];
++				if (srcAlpha == 0) {
++					// Remove transparent color on dest, as the generic path does
++					if (destHasTransColor && destVal == destTransColor)
++						destVal = 0;
++					continue;
++				}
++				destVal = lookup ? lookup[(byte)srcVal] : (TDEST)srcVal;
++			}
++		}
++
++		delete[] lookup;
++		return;
+ 	}
+ 
+ 	// Loop through drawing output lines
+@@ -916,16 +950,14 @@ void transBlit(const Surface &src, const Common::Rect &srcRect, ManagedSurface &
+ 			TSRC srcVal = srcLine[flipped ? src.w - scaleXCtr / SCALE_THRESHOLD - 1 : scaleXCtr / SCALE_THRESHOLD];
+ 			TDEST &destVal = destLine[xCtr];
+ 
+-			dest.format.colorToRGB(destVal, r, g, b);
+-
+ 			// Check if dest pixel is transparent
+ 			bool isDestPixelTrans = false;
+ 			if (isDestTrans32) {
+ 				dest.format.colorToRGB(destVal, r, g, b);
+ 				if (rdt == r && gdt == g && bdt == b)
+ 					isDestPixelTrans = true;
+-			} else if (dest.hasTransparentColor()) {
+-				isDestPixelTrans = destVal == dest.getTransparentColor();
++			} else if (destHasTransColor) {
++				isDestPixelTrans = destVal == destTransColor;
+ 			}
+ 
+ 			if (isSrcTrans32) {

@@ -1,0 +1,54 @@
+From b73863bf855f2b303433cf9603f4226933515d60 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 05:58:38 +0100
+Subject: [PATCH 11/14] DIRECTOR: Keep the current palette when a frame refers
+ to an erased one
+
+Director allows palette IDs of cast members that have been erased.
+Score::setLastPalette() then used the score cached palette, but the
+cached ID of such a frame (and of the frames after it) is the same
+erased palette, so it fell back to the movie default palette. Every
+bitmap of the frame was remapped to that palette, which looks like
+noise and is slow.
+
+In The Great Green Mouse Disaster, the room SNOOKER refers to an erased
+palette 301 in several animations: the room turned into colored noise
+and the frame rate on the 3DS dropped to 5 fps. Now the current palette
+stays in effect when the frame or cached palette is erased.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/score.cpp | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/engines/director/score.cpp b/engines/director/score.cpp
+index 81eea3257b..f889f18f65 100644
+--- a/engines/director/score.cpp
++++ b/engines/director/score.cpp
+@@ -1164,15 +1164,24 @@ void Score::setLastPalette() {
+ 	CastMemberID currentPalette = _currentFrame->_mainChannels.palette.paletteId;
+ 	// Director allows you to use palette IDs for cast members
+ 	// that have long since been erased. Check all of them.
+-	if (!_vm->hasPalette(currentPalette))
++	const bool erasedPalette = !currentPalette.isNull() && !_vm->hasPalette(currentPalette);
++	if (erasedPalette)
+ 		currentPalette = CastMemberID();
+ 	// Palette not specified in the frame
+ 	if (currentPalette.isNull()) {
+ 		// Use the score cached palette ID
+ 		isCachedPalette = true;
+ 		currentPalette = _currentFrame->_mainChannels.scoreCachedPaletteId;
+-		if (!_vm->hasPalette(currentPalette))
++		const bool erasedCachedPalette = !currentPalette.isNull() && !_vm->hasPalette(currentPalette);
++		if (erasedCachedPalette)
+ 			currentPalette = CastMemberID();
++		// The cached ID carries an erased palette on to the following frames.
++		// Keep the current palette then instead of falling back to the movie
++		// default: switching would remap every bitmap of the frame to the
++		// default palette, which looks like noise and is slow (e.g. The Great
++		// Green Mouse Disaster, room SNOOKER, refers to an erased palette 301).
++		if (currentPalette.isNull() && (erasedPalette || erasedCachedPalette) && !_vm->_lastPalette.isNull())
++			return;
+ 		// The cached ID is created before the cast gets loaded; if it's zero,
+ 		// this corresponds to the movie default palette.
+ 		if (currentPalette.isNull()) {

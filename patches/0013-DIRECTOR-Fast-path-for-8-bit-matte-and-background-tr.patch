@@ -1,0 +1,73 @@
+From b77e081582ca285d0e62329125429016db4c2771 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 06:16:29 +0100
+Subject: [PATCH 13/14] DIRECTOR: Fast path for 8-bit matte and background
+ transparent blits
+
+Every ink other than an unmasked copy went through InkPrimitives::
+drawPoint() per pixel, with a virtual call, bounds checks and color
+preprocessing. In 8-bit mode, copy through a mask, matte, mask, blend
+without alpha and background transparent only copy or skip pixels, so
+they now use a plain loop when source, mask and destination are fully
+in bounds. The result is the same; other cases take the old path.
+
+On the 3DS (emulator), a draw cycle of the room SNOOKER in The Great
+Green Mouse Disaster went from 123-185 ms to 11 ms together with the
+other two changes, and the room animates at its tempo of 12 fps
+instead of 5 fps.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/graphics.cpp | 39 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/engines/director/graphics.cpp b/engines/director/graphics.cpp
+index 178f0467c8..48e9e5858e 100644
+--- a/engines/director/graphics.cpp
++++ b/engines/director/graphics.cpp
+@@ -775,6 +775,45 @@ void DirectorPlotData::inkBlitSurface(Common::Rect &srcRect, const Graphics::Sur
+ 		}
+ 	}
+ 
++	// FAST PATH for 8-bit inks that only copy or skip pixels: copy through a
++	// mask, matte, mask, blend without alpha and background transparent.
++	// Same result as the per-pixel loop below (see InkPrimitives::drawPoint),
++	// without a virtual call per pixel. Only used when source, mask and
++	// destination are fully in bounds; everything else takes the loop below.
++	// Text-like sprites are excluded, preprocessColor() changes their colors.
++	if (!applyColor && !alpha && !ms && d->_wm->_pixelformat.bytesPerPixel == 1 && srf->format.bytesPerPixel == 1 &&
++			sprite != kTextSprite && sprite != kButtonSprite && sprite != kCheckboxSprite && sprite != kRadioButtonSprite &&
++			(ink == kInkTypeCopy || ink == kInkTypeMatte || ink == kInkTypeMask || ink == kInkTypeBlend ||
++			 (ink == kInkTypeBackgndTrans && (srfMask || !oneBitImage)))) {
++		const int width = destRect.width();
++		const int height = destRect.height();
++		const int srcX = abs(srcRect.left - destRect.left);
++		const int srcY = abs(srcRect.top - destRect.top);
++		const Graphics::Surface *maskSurface = mask ? mask : (srfMask ? &srfMask->rawSurface() : nullptr);
++		const bool inBounds = width > 0 && height > 0 &&
++			srcX + width <= srf->w && srcY + height <= srf->h &&
++			(!maskSurface || (srcX + width <= maskSurface->w && srcY + height <= maskSurface->h)) &&
++			destRect.left >= 0 && destRect.top >= 0 && destRect.right <= dst->w && destRect.bottom <= dst->h;
++		if (inBounds) {
++			// Background transparent without a separate mask skips the background color
++			const bool skipBackColor = ink == kInkTypeBackgndTrans && !srfMask && backColor <= 0xff;
++			const byte back = (byte)backColor;
++			for (int i = 0; i < height; i++) {
++				const byte *src = (const byte *)srf->getBasePtr(srcX, srcY + i);
++				const byte *msk = maskSurface ? (const byte *)maskSurface->getBasePtr(srcX, srcY + i) : nullptr;
++				byte *out = (byte *)dst->getBasePtr(destRect.left, destRect.top + i);
++				for (int j = 0; j < width; j++) {
++					if (msk && !msk[j])
++						continue;
++					if (skipBackColor && src[j] == back)
++						continue;
++					out[j] = src[j];
++				}
++			}
++			return;
++		}
++	}
++
+ 	// For blit efficiency, surfaces passed here need to be the same
+ 	// format as the window manager. Most of the time this is
+ 	// the job of BitmapCastMember::createWidget.

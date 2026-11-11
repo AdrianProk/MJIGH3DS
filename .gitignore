@@ -13,8 +13,6 @@ scummvm/
 
 # Build-Ausgaben
 dist/
-*.3dsx
-*.cia
 *.smdh
 *.elf
 

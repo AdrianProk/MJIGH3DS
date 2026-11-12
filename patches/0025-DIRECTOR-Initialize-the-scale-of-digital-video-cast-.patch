@@ -1,0 +1,38 @@
+From cd8d6fa1513e3777c3b566bde6b4595fc7e79a5c Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Thu, 12 Nov 2026 20:10:54 +0100
+Subject: [PATCH 25/27] DIRECTOR: Initialize the scale of digital video cast
+ members read from a cast
+
+Commit 6c8a0e45f1 added _scaleX/_scaleY and made getInitialRect()
+multiply the video size with them, but only the default constructor
+sets them to 100. The constructor that reads the member from cast data
+left them uninitialized, so sprites of these videos got a random size:
+640x480 when the leftover value happened to be 0 or 100, otherwise
+e.g. 13030x480 or 13100x23424.
+
+The widget is created at the sprite size and the frame is stretched
+into it for every frame. On the desktop this went mostly unnoticed. On
+the 3DS (The Great Green Mouse Disaster) it made some videos play at
+2 fps with heap peaks of 65 MB, and the oversized allocations
+eventually froze the game after a number of rooms.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/castmember/digitalvideo.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/engines/director/castmember/digitalvideo.cpp b/engines/director/castmember/digitalvideo.cpp
+index 23fd2fd11d..63a3f94a30 100644
+--- a/engines/director/castmember/digitalvideo.cpp
++++ b/engines/director/castmember/digitalvideo.cpp
+@@ -145,6 +145,9 @@ DigitalVideoCastMember::DigitalVideoCastMember(Cast *cast, uint16 castId, Common
+ 	_center = _vflags & 0x01;
+ 	_dirty = false;
+ 	_emptyFile = false;
++	// The scale is a D7 property that is not stored in the cast data read here;
++	// getInitialRect() multiplies the video size with it
++	_scaleX = _scaleY = 100;
+ 
+ 	memset(_ditheringPalette, 0, 256*3);
+ 

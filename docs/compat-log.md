@@ -4,6 +4,68 @@ Testmatrix und Fehlerprotokoll. Neueste Einträge oben im Protokoll.
 
 ## Protokoll
 
+### 2026-11-12 – B8: Absturz bei Maus 14/15 (Agent, Log des Nutzers, Desktop und Azahar)
+
+- **Befund des Nutzers (New 3DS, CIA mit Stand 2026-11-11 18:17, noch ohne B7-Korrektur):** Nach 14 gefangenen Mäusen stürzt das Spiel ab und friert den ganzen 3DS ein.
+- **Log des Nutzers** (`SD:\3ds\mausjagd\scummvm.log`, lokal in `crashfiles/`, nicht im Repo):
+  - Die `put`-Ausgaben zeigen den Verlauf: `spritelist` (noch offene Räume) schrumpft von 19 auf 5.
+  - Reihenfolge der Räume: Ballsaal, Snooker, Hochzeitspaar, Bad, Klempner, Schlampen, Bauer, Spielzimmer, Bibliothek, Büro, Hexen, Künstler, Fitness, Bar. Maus 14 ist um 22:23:35 gefangen.
+  - Der 15. Raum (Mad Scientist, Präsidenten-Schlafzimmer, Präsidenten-Wohnzimmer, Speisesaal oder Küche) startet um 22:23:37. Bis 22:23:53 folgen nur Warnungen `Sprite::getShape(): kCastMemberSprite has no cast defined!`, die auch in Räumen ohne Absturz zu Hunderten vorkommen (Treffertests beim Tippen). Danach endet das Log.
+  - Der Luma-Absturzbericht im selben Ordner (`crash_dump_00000004.dmp`, Prefetch Abort im Kernel) stammt vom 01.12.2025 und vom Systemdienst `news`, gehört also nicht dazu. Für B8 gibt es keinen Bericht. Das spricht für ein Einfrieren, nicht für eine Ausnahme im Spiel.
+- **Testhilfe:** `tools/scummvm-test-patches/movie-tour.patch`, eine Rundtour durch alle 19 Räume in einem Prozess. Die Test-`LINGO.INI` dafür:
+  - `buildList` (Variante 1), `theBuild` `"BUILD1"`, `miceCaught` 0, `playList` `[]`, `music` 1, `mytempo` 12, `numtraps` 0, `trapsdone` `EMPTY`
+  - `spritelist` 25 × 5, `shortlist` 5–23, `theselsprite` 5, `WhereAmI` `"menu"`
+  - `the searchPath` wie im Startfilm, dazu die Pfade aus der Original-INI
+- **Ergebnisse:**
+
+  | Lauf | Ergebnis |
+  |---|---|
+  | Desktop, ohne Fangen | 19 Räume, kein Absturz; Heap +0,34 MB pro Raum |
+  | Desktop, mit Fangen (Video, `endofRoom`) | 19 Räume, kein Absturz; Heap 14,1 → 20,9 MB (+0,35 MB pro Raum); nur PLAYROOM erreichte `endofRoom` nicht innerhalb von 90 s |
+  | Desktop mit ASan/UBSan, Hilfevideo der Katze jedes Mal mittendrin per Filmwechsel abgebrochen | 19 Durchgänge, **kein Befund** |
+  | Azahar, ohne Fangen | 19 Räume, kein Absturz; Heap 12,2 → 16,8 MB; linearer Speicher konstant 16 MB frei |
+  | Azahar, mit Fangen, Spieldaten in der RomFS | 19 Räume, kein Absturz |
+  | Azahar, mit Fangen, Spieldaten auf der SD (schlanker Build) | sporadischer Stillstand beim Start des Fang-Videos (Maus 17, Maus 7), einmal im Menü (Maus 4); zwei weitere Läufe ohne Stillstand |
+
+- **Stillstand im SD-Build (GDB über Azahars Stub):** Kein Thread steckt in einer Sperre. Die Hauptschleife läuft weiter (`DirectorEngine::run` → `delayMillis(10)`), Azahar braucht kaum Rechenzeit, aber der Score rückt nicht vor, und die Tour schaltet nicht weiter. Ursache noch offen; ein Fehler der SD-Emulation von Azahar ist möglich.
+- **Gefunden und behoben, Patch 0024 (3DS-Backend):**
+  - `Sprite::free()` ließ nach `C3D_TexDelete()` den Texturzeiger stehen; citro3d setzt ihn nicht zurück. Das nächste `create()` gab die alte Adresse ein zweites Mal frei. War sie inzwischen neu vergeben, zum Beispiel an den direkt davor angelegten Pixelpuffer, teilten sich Grafikchip und Programm fremden linearen Speicher.
+  - Die Hotelkarte (Patch 0010) löst `free()` + `create()` bei jedem Filmwechsel und jeder neuen Mauszahl aus.
+  - Ein Stresstest mit 300 Aktualisierungen löste den Fehler im Emulator nicht aus; als Ursache von B8 ist er damit nicht belegt.
+- **Lücke der Tour:** Bis 2026-11-12 nachmittags sprang die Tour an den Anfang des Menüs, nie in die Hotelübersicht. Die Hotelkarte war deshalb in keinem dieser Läufe aktiv (Hinweis des Nutzers: oben dasselbe Bild wie unten). Seitdem führt die Tour über Frame 14 (Hotelübersicht).
+- **Reproduziert in Azahar** (RomFS, Hotelkarte aktiv, ohne Patch 0024): Stillstand bei **Maus 14** (Fitness), wieder direkt nach dem Parsen des Fang-Videos. Danach lief kein Herzschlag und keine Diagnose-Zeile mehr, und das Azahar-Fenster antwortete nicht mehr.
+- **Auffällige Räume:** In einem weiteren Lauf ohne Stillstand liefen die Fang-Videos von drei Räumen mit 1,8–2,6 fps statt 11–16 fps. Der Heap stieg dabei auf Spitzen von 48,8 MB (Hochzeitspaar) und 65,8 MB (Fitness), alle anderen Räume blieben unter 35 MB. Diese drei Räume kamen vor jedem Stillstand vor, auch im Spiel des Nutzers (Maus 3, 8, 13).
+- **Ursache (Desktop, Messzeilen am Video):**
+  - Das Dekodieren kostet 0–1 ms pro Bild. Die **Zielbox des Video-Sprites** war aber zufällig: 640×480, 11 545–15 401 × 480 oder 13 100 × 23 424.
+  - `DigitalVideoCastMember` multipliziert in `getInitialRect()` die Videogröße mit `_scaleX`/`_scaleY` (D7-Eigenschaft, upstream seit Commit `6c8a0e45f1`, 2026-06-30). Nur der Standard-Konstruktor setzte sie auf 100, der Konstruktor, der das Cast-Member aus den Filmdaten liest, ließ sie uninitialisiert.
+  - Das Widget wird in Sprite-Größe angelegt und jedes Videobild hineingestreckt: bis zu mehrere hundert MB pro Bild. Am Desktop fiel das kaum auf; auf dem 3DS führte es zu 2 fps, Heap-Spitzen und schließlich zu einer Anforderung, die nicht mehr zu erfüllen war.
+  - Welche Räume betroffen sind, hängt vom Zufall im Speicher ab. Deshalb trat der Stillstand mal bei Maus 4, 7, 14 oder 17 auf. Beim Nutzer kam er im 15. Raum, wahrscheinlich dem Speisesaal, dessen Video am Desktop einmal 13 100 × 23 424 groß wurde.
+- **Behoben mit Patch 0025:** Initialisierung im Lese-Konstruktor. Danach haben am Desktop alle Fang-Videos (Künstler, Bauer, Hochzeitspaar, Spielzimmer, Fitness, Speisesaal) 640×480.
+- **Prüflauf in Azahar mit allen Korrekturen** (Patches 0001–0025, RomFS, Hotelkarte aktiv, 2026-11-12 20:17–20:35):
+  - Alle 19 Räume mit Fangen, ohne Stillstand; die Karte wurde 97-mal aktualisiert.
+  - Die Fang-Videos laufen überall mit 11–16 fps; vorher hatten Hochzeitspaar, Spielzimmer und Fitness 1,8–2,6 fps.
+  - Die Heap-Spitze liegt bei höchstens 35,0 MB, vorher bei bis zu 65,8 MB.
+- **Auf dem 3DS bestätigt** (2026-11-12, Nutzer): neue CIA per QR-Code installiert, das ganze Spiel ohne Absturz durchgespielt.
+
+### 2026-11-11 – B7: Katze redet im Instrumentenraum von selbst (Agent, Desktop ohne Fenster)
+
+- **Befund des Nutzers (3DS):** Im Instrumentenraum (INSTRUM) fängt die Katze an zu reden. Nach etwa 3/4 bricht sie ab, und ihr Bild bleibt unten in der Ecke, bis man 2–3 Instrumente antippt. Meist ab Maus 2.
+- **Aufbau des Tests:** eigener Linux-Build, `--start-movie=INSTRUM.DXR`, keine Eingaben. Eine eigene `LINGO.INI` in einem Testordner mit Verweisen auf die Spieldaten setzt den Zustand "Maus 2 gefangen":
+  - `buildList` (Variante 1), `miceCaught`, `playList`, `music`, `WhereAmI`
+  - `the timeoutMouse` = 0 wie in den Räumen und `the searchPath` wie im Startfilm
+- **Ablauf in INSTRUM** (Labels: `Select` 4, `help` 7, `Done` 11, `Bored` 1397):
+  - Frame 2 setzt `the timeoutLength` auf 4 s und `the timeoutScript` auf `"Bored"`, Frame 4 wartet mit `go the frame`.
+  - Nach 4 s ohne Eingabe: `bored` → `play frame "bored"`, kurze Animation (Frames 1397–1413), dann `play done`.
+  - **Fehler:** ScummVM kehrte zu **Frame 5** statt 4 zurück. Der Film lief über 5 und 6 in die Hilfe-Sequenz (Frame 7): Das Katzenvideo `cathel11.mov` startete von selbst (26 s). Danach sprang `go(myhelpframe)` ins Leere, weil die Variable nur der Hilfe-Knopf setzt, und der Film fiel über `Done` bis nach ORCH durch.
+  - Im Original kommt diese Sequenz nur über den Hilfe-Knopf. Während des Videos überspringt jedes Antippen den Rest (`mouseDownScript` = `"go frame the frame + 1"`). Abbruch und stehenbleibendes Bild beim Antippen von Instrumenten passen dazu.
+- **Ursache:** `Lingo::func_play` lässt `play done` zum nächsten Frame zurückkehren, wenn `play` aus dem Skriptkanal kam (Kanal 0). Ereignis-Skripte wie `timeoutScript` und `mouseDownScript` laufen ebenfalls mit Kanal 0 und wurden deshalb wie Frame-Skripte behandelt.
+- **Behoben mit Patch 0023:** Die Engine merkt sich den Skripttyp des laufenden Ereignisses. Primäre Ereignis-Handler (`kEventScript`: `timeoutScript`, `mouseDownScript`, `keyDownScript` …) kehren nach `play done` zum selben Frame zurück. Alles andere verhält sich wie vorher, auch `on exitFrame` in Movie-Skripten.
+  - Eine erste Fassung prüfte auf `kScoreScript`. Sie hätte auch `play` aus `on exitFrame` in Movie-Skripten zum selben Frame zurückgeschickt und dort eine Endlosschleife ermöglicht; Hinweis aus dem Review der Sicherheits-Sitzung. Deshalb jetzt die engere Bedingung `!= kEventScript`.
+  - **Test:** Danach alle 4 s Bored-Animation und Rückkehr zu Frame 4, kein Video, kein Sprung nach ORCH.
+  - **Gegenprobe im ganzen Spiel:** Nur `bored` ruft `play` aus einem Ereignis-Skript auf: INSTRUM, dazu eine unbenutzte Kopie in EXIT, wo kein Skript `"Bored"` setzt. Die übrigen Ereignis-Handler (`nothingatstart`, `checkexit`, `whenexit`, `select` …) nutzen `go`. Frame- und Sprite-Skripte verhalten sich wie bisher.
+- **Nebenbefund:** `getMovieCurrentTime()` liefert bei Zeit 0 durch einen vorzeichenlosen Unterlauf die Gesamtlänge (`STARTING VIDEO … 1560/1560`). Das betrifft nur `the movieTime` bei Zeit 0, das Spiel fragt es nicht ab. Nicht behoben.
+- **Offen:** Bestätigung auf dem 3DS.
+
 ### 2026-11-11 – Alle Räume durchgeprüft: Verweise ins Leere (Agent, statisch)
 
 - **Wunsch des Nutzers:** alle Räume auf Fehler wie in SNOOKER durchgehen.

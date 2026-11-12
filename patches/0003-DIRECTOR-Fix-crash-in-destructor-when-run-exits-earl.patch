@@ -1,7 +1,7 @@
 From 3197d5329aef732084f0f94e3a065610c6faf979 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 18:29:17 +0100
-Subject: [PATCH 03/22] DIRECTOR: Fix crash in destructor when run() exits
+Subject: [PATCH 03/27] DIRECTOR: Fix crash in destructor when run() exits
  early
 
 DirectorEngine::run() can return before the stage window is created,

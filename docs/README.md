@@ -6,6 +6,7 @@ Befunde, Protokolle und Build-Doku des Projekts. Sie enthalten nur Metadaten und
 |---|---|---|
 | `environment.md` | Werkzeuge und Systemvoraussetzungen auf dem Entwicklungsrechner | T0.2 |
 | `inventory.md` | Alle extrahierten Spieldateien mit Größe, SHA-1, Kategorie, nötig/Beilage (generiert von `tools/inventory.py`) | T1.3, T1.4 |
+| `inventory-en.md` | Dasselbe für die englische CD in `game-en/` | T7.2 |
 | `startup.md` | Startablauf: Projektor → erster Film → `LINGO.INI` | T1.5 |
 | `gameplay.md` | Spielmechanik laut Anleitung (eigene Zusammenfassung) | T1.4 |
 | `reference.md` | Woher das Referenzverhalten des Originals kommt | T1.6 |

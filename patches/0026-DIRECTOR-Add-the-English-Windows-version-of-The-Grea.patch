@@ -1,0 +1,28 @@
+From 63595e2dd6dc3e0c75ead6c6a0571d2b98c5df12 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Thu, 12 Nov 2026 23:28:30 +0100
+Subject: [PATCH 26/27] DIRECTOR: Add the English Windows version of The Great
+ Green Mouse Disaster
+
+Windows CD "GGMD_ENGLISH_WIN" with the projector GGMD.EXE. Same
+structure as the German entry (projector and shared cast), the help
+and intro videos are in ENGHELP and ENGVIDEO.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/detection_tables.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/engines/director/detection_tables.h b/engines/director/detection_tables.h
+index 4bf5701af0..c32087f6c4 100644
+--- a/engines/director/detection_tables.h
++++ b/engines/director/detection_tables.h
+@@ -4482,6 +4482,8 @@ static const DirectorGameDescription gameDescriptions[] = {
+ 	MACGAME1_l("ggmd", "", "xn--Musejagd mit Ton-vnb/xn--Musejagd-0za",				"r:ea646eccc9a53f44ce082459d4809a06", 483490, Common::DE_DEU, 404),
+ 	MACGAME1_l("ggmd", "", "muizen in \'t hotel, geluid/Help! Muizen in 't hotel!", "r:e6833f1ce3b022f0128e4c80a55bcd46", 285282, Common::NL_NLD, 404),
+ 	WINGAME1("ggmd", "",   "KMDGM.EXE",	   "d:c45bac8f730cae2e2a174dbc14deff7b", 690021, 404),
++	WINGAME2("ggmd", "",   "GGMD.EXE",     "d:e4114d5d8bd0623e6c9d90c9c7284a90", 1444668,
++						   "SHARED.DXR",   "d:c7591219b8c73a8ba08ad467290c4999", 391136, 404),
+ 	WINGAME2_l("ggmd", "", "MAUSJAGD.EXE", "d:04d63d66464bce6356f9d70d83487838", 1302352,
+ 						   "SHARED.DXR",   "d:15f0add56f03a01a98b076f4792608f6", 389060, Common::DE_DEU, 404),
+ 	WINGAME1_l("ggmd", "", "MUIZEN.EXE",   "t:0cf81ec84222d6327312c359a0b62ef8", 1483435, Common::NL_NLD, 404),

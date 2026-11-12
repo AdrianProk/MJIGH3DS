@@ -1,0 +1,74 @@
+From befc558a940eea7005c40fc52a793791e72d322e Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Wed, 11 Nov 2026 22:27:34 +0100
+Subject: [PATCH 23/27] DIRECTOR: LINGO: Return to the current frame after play
+ done from event handlers
+
+func_play makes "play done" return to the next frame when play was
+issued from the script channel, so that a frame script calling play
+does not run again. The primary event handlers (timeoutScript,
+mouseDownScript, keyDownScript ...) also run with channel 0, so they
+were treated the same way, although they are not frame scripts.
+
+The Great Green Mouse Disaster loops in its instrument selection frame
+with "go the frame" and plays a short animation from its timeoutScript
+("play frame "bored"" ... "play done"). Returning to the next frame
+instead ran into the help sequence placed after the selection frame:
+the cat's help video started on its own and afterwards "go
+myhelpframe" (never set) fell through to the orchestra.
+
+Remember the script type of the event being processed and do not skip
+ahead for primary event handlers (kEventScript). Everything else,
+including exitFrame handlers in movie scripts, behaves as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ engines/director/lingo/lingo-events.cpp | 1 +
+ engines/director/lingo/lingo-funcs.cpp  | 9 +++++++--
+ engines/director/lingo/lingo.h          | 1 +
+ 3 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/engines/director/lingo/lingo-events.cpp b/engines/director/lingo/lingo-events.cpp
+index 86045e2eaf..7ca9d8fac0 100644
+--- a/engines/director/lingo/lingo-events.cpp
++++ b/engines/director/lingo/lingo-events.cpp
+@@ -821,6 +821,7 @@ void Lingo::processEvents(Common::Queue<LingoEvent> &queue, bool isInputEvent) {
+ 
+ bool Lingo::processEvent(LEvent event, ScriptType st, CastMemberID scriptId, int channelId, AbstractObject *obj) {
+ 	_state->currentChannelId = channelId;
++	_state->currentScriptType = st;
+ 
+ 	if (!_eventHandlerTypes.contains(event))
+ 		error("processEvent: Unknown event %d", event);
+diff --git a/engines/director/lingo/lingo-funcs.cpp b/engines/director/lingo/lingo-funcs.cpp
+index 563125e734..bf998f965b 100644
+--- a/engines/director/lingo/lingo-funcs.cpp
++++ b/engines/director/lingo/lingo-funcs.cpp
+@@ -206,8 +206,13 @@ void Lingo::func_play(Datum &frame, Datum &movie) {
+ 	}
+ 	ref.frameI = _vm->getCurrentMovie()->getScore()->getCurrentFrameNum();
+ 
+-	// if we are issuing play command from script channel script. then play done should return to next frame
+-	if (_state->currentChannelId == 0)
++	// if we are issuing play command from script channel script. then play done should return to next frame.
++	// Primary event handlers (the timeoutScript, mouseDownScript, keyDownScript etc.) also run with
++	// channel 0, but they are not frame scripts: "play done" returns to the frame that was playing.
++	// The Great Green Mouse Disaster plays a short animation from its timeoutScript while it loops
++	// in a "go the frame" selection frame; returning to the next frame instead ran into the help
++	// sequence placed after it.
++	if (_state->currentChannelId == 0 && _state->currentScriptType != kEventScript)
+ 		ref.frameI++;
+ 
+ 	stage->_movieStack.push_back(ref);
+diff --git a/engines/director/lingo/lingo.h b/engines/director/lingo/lingo.h
+index d80362d951..c26f373b47 100644
+--- a/engines/director/lingo/lingo.h
++++ b/engines/director/lingo/lingo.h
+@@ -354,6 +354,7 @@ struct LingoState {
+ 	Datum me;								// current me object
+ 	StackData stack;
+ 	int currentChannelId = 0;
++	ScriptType currentScriptType = kNoneScript;	// script type of the event being processed
+ 
+ 	~LingoState();
+ };

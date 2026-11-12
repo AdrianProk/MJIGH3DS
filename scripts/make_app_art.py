@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Icon, Banner und Banner-Ton der 3DS-App aus den eigenen Spieldaten (scripts/build-3ds.sh).
 
-Quelle ist der Startfilm GGMDSTRT, der in MAUSJAGD.EXE eingebettet ist:
-  - Cast 9 "german splashscreen" (640x480, 8 Bit, Palette Cast 8): Titelbild -> Banner und Icon
+Quelle ist der Startfilm GGMDSTRT, der im Projektor eingebettet ist (MAUSJAGD.EXE bzw. GGMD.EXE):
+  - Cast 9 "german splashscreen" bzw. "english splashscreen" (640x480, 8 Bit, Palette Cast 8):
+    Titelbild -> Banner und Icon
   - Cast 6 "Theme.aif" (snd): Titelmelodie -> Banner-Ton (die ersten Sekunden, ausgeblendet)
 
 Die Ausgaben enthalten Spielgrafik und -ton. Sie entstehen nur im Build-Ordner und landen nie
@@ -12,7 +13,7 @@ eigenen Gebrauch sind. Nur Python-Standardbibliothek; liest die Spieldaten nur.
 Aufruf:
     python3 -I scripts/make_app_art.py <game> <ausgabeordner> [--full]
 
-    <game>           Ordner mit MAUSJAGD.EXE
+    <game>           Ordner mit MAUSJAGD.EXE oder GGMD.EXE
     <ausgabeordner>  bekommt banner.png (256x128), icon.png (48x48), banner.wav
     --full           zusätzlich splash.png (ganzes Titelbild, zum Prüfen der Ausschnitte)
 """
@@ -25,7 +26,8 @@ import zlib
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tools'))
 import dxr_inventory  # noqa: E402  (Chunk-Lesung der Director-Filme)
 
-SPLASH_MEMBER = 9
+PROJECTORS = ('MAUSJAGD.EXE', 'GGMD.EXE')   # deutsche, englische Fassung
+SPLASH_MEMBER = 9   # "german splashscreen" bzw. "english splashscreen"
 THEME_MEMBER = 6
 # Ausschnitte im 640x480-Titelbild (x, y, Breite, Höhe), am Bild ausgesucht (2026-11-11):
 BANNER_CROP = (0, 0, 640, 320)    # obere zwei Drittel: Logo, Hotelfassade, Portier (2:1 wie der Banner)
@@ -236,7 +238,11 @@ def main():
         sys.exit(__doc__)
     game, out = args
     os.makedirs(out, exist_ok=True)
-    movie = StartMovie(os.path.join(game, 'MAUSJAGD.EXE'))
+    # Projektor der deutschen bzw. englischen Fassung; der Startfilm ist in beiden gleich aufgebaut
+    exe = next((os.path.join(game, n) for n in PROJECTORS if os.path.isfile(os.path.join(game, n))), None)
+    if not exe:
+        sys.exit(f'{game}: kein Projektor ({", ".join(PROJECTORS)})')
+    movie = StartMovie(exe)
     w, h, splash = decode_bitmap(movie, SPLASH_MEMBER)
     if (w, h) != (640, 480):
         raise ValueError(f'Titelbild {w}x{h}, erwartet 640x480')

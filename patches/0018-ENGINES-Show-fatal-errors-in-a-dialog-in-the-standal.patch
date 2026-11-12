@@ -1,7 +1,7 @@
 From 54476c0c3586cdab444ad83466fa84f2bf30889f Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:16:30 +0100
-Subject: [PATCH 18/22] ENGINES: Show fatal errors in a dialog in the
+Subject: [PATCH 18/27] ENGINES: Show fatal errors in a dialog in the
  standalone build (MAUSJAGD_PORT)
 
 On an error, the default handler opens the debugger console, which

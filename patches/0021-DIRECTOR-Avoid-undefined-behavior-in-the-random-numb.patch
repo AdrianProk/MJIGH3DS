@@ -1,7 +1,7 @@
 From 04b33e1f30600f589a8d5138f4a35739fe1640c5 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:30:59 +0100
-Subject: [PATCH 21/22] DIRECTOR: Avoid undefined behavior in the random number
+Subject: [PATCH 21/27] DIRECTOR: Avoid undefined behavior in the random number
  generator
 
 RandomState relies on 32-bit two's complement wrap-around, but did the

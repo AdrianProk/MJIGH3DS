@@ -1,7 +1,7 @@
 From cbd4f34589f4f87e6f308b0102212425670e7a40 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:31:54 +0100
-Subject: [PATCH 22/22] SAVES: Write save files atomically in the standalone
+Subject: [PATCH 22/27] SAVES: Write save files atomically in the standalone
  build (MAUSJAGD_PORT)
 
 DefaultSaveFileManager opened save files for writing directly. The game

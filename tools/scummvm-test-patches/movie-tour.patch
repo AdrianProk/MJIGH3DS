@@ -1,0 +1,147 @@
+diff --git a/engines/director/director.cpp b/engines/director/director.cpp
+index c32920fd32..116ec1bb99 100644
+--- a/engines/director/director.cpp
++++ b/engines/director/director.cpp
+@@ -19,6 +19,14 @@
+  *
+  */
+ 
++// TEMPORARY TEST (not for the series): mallinfo() for the movie tour
++#define FORBIDDEN_SYMBOL_ALLOW_ALL
++#include <malloc.h>
++#ifdef __3DS__
++#include <3ds.h>
++#define TICKS_PER_MSEC_TOUR 268123
++#endif
++
+ #include "backends/modular-backend.h"
+ #include "backends/graphics/graphics.h"
+ 
+@@ -269,6 +277,119 @@ void renderPendingWindow() { }
+ }
+ #endif
+ 
++// ---- TEMPORARY TEST (not for the series): movie tour with memory log ----
++static void testMovieTour() {
++	static int interval = -1;
++	if (interval < 0)
++		interval = ConfMan.hasKey("mausjagd_test_tour") ? ConfMan.getInt("mausjagd_test_tour") : 0;
++	if (interval <= 0)
++		return;
++#ifdef __3DS__
++	// Heartbeat on the system tick, independent of getMillis() and the score
++	{
++		static u64 lastBeat = 0;
++		const u64 t = svcGetSystemTick();
++		if (t - lastBeat > 10ULL * SYSCLOCK_ARM11) {
++			lastBeat = t;
++			Movie *m = g_director->getStage() ? g_director->getStage()->getCurrentMovie() : nullptr;
++			Score *sc = m ? m->getScore() : nullptr;
++			warning("TOUR beat: tick-ms %u, getMillis %u, frame %d, movie %s",
++			        (uint)(t / TICKS_PER_MSEC_TOUR), g_system->getMillis(), sc ? (int)sc->getCurrentFrameNum() : -1,
++			        m ? m->getMacName().c_str() : "-");
++		}
++	}
++#endif
++	if (!g_director->getStage() || !g_director->getStage()->getCurrentMovie())
++		return;
++	static const char *const rooms[] = {
++		"ARTIST", "FARMER", "WITCHES", "PLUMBER", "MADSCI", "NEWLYWED", "PRESBED", "PRESLIV", "BALLROOM",
++		"BUSINESS", "PLAYROOM", "SLOBS", "BATHROOM", "EXERCISE", "LIBRARY", "DINING", "KITCHEN", "BAR", "SNOOKER"
++	};
++	// Per mouse: menu -> room -> (after 5 s) go "caught": video and endofRoom of the game
++	// itself, which goes on to INSTRUM -> orchestra -> menu again
++	enum { kStart, kMenu, kRoom, kCaught, kInstrum, kOrch };
++	static int state = kStart;
++	static uint32 since = 0;
++	static uint mouse = ConfMan.hasKey("mausjagd_test_tour_first") ? ConfMan.getInt("mausjagd_test_tour_first") : 0;
++	const uint32 now = g_system->getMillis();
++	if (since == 0)
++		since = now;
++	const uint32 elapsed = now - since;
++	const Common::String current = g_director->getStage()->getCurrentMovie()->getMacName();
++
++	auto log = [&](const char *what) {
++		struct mallinfo mi = mallinfo();
++		uint linearFree = 0;
++#ifdef __3DS__
++		linearFree = linearSpaceFree();
++#endif
++		warning("TOUR mouse %u %s (in %s): heap in use %d KB, arena %d KB, linear free %u KB, open archives %u",
++		        mouse + 1, what, current.c_str(), mi.uordblks / 1024, mi.arena / 1024, linearFree / 1024,
++		        g_director->_allSeenResFiles.size());
++	};
++	auto go = [&](const char *movieName, const char *label, int newState, int frameNum = 1) {
++		g_director->setCurrentWindow(g_director->getStage());
++		Datum frame = label ? Datum(Common::String(label)) : Datum(frameNum);
++		Datum movie = movieName ? Datum(Common::String(movieName)) : Datum();
++		g_lingo->func_goto(frame, movie);
++		state = newState;
++		since = now;
++	};
++
++	switch (state) {
++	case kStart:
++	case kOrch:
++		if (elapsed >= (uint32)interval * 1000) {
++			if (state == kOrch)
++				mouse++;
++			log("menu");
++			// Frame 14: hotel overview, so that the hotel map of the port is active as in the game
++			go("GGMDMENU", nullptr, kMenu, 14);
++		}
++		break;
++	case kMenu:
++		if (elapsed >= (uint32)interval * 1000) {
++			log(rooms[mouse % ARRAYSIZE(rooms)]);
++			go(rooms[mouse % ARRAYSIZE(rooms)], nullptr, kRoom);
++		}
++		break;
++	case kRoom:
++		if (elapsed >= 5000) {
++			log("caught");
++			go(nullptr, "caught", kCaught);
++		}
++		break;
++	case kCaught:
++		if (current.hasPrefixIgnoreCase("instrum")) {
++			log("in INSTRUM by endofRoom");
++			state = kInstrum;
++			since = now;
++		} else if (elapsed >= 90000) {
++			log("TIMEOUT, no endofRoom");
++			go("INSTRUM", nullptr, kInstrum);
++		}
++		break;
++	case kInstrum: {
++		// Optionally start the cat's help video and leave the movie while it plays (path of B7)
++		static bool helpStarted = false;
++		const bool withHelp = ConfMan.getBool("mausjagd_test_tour_help");
++		if (withHelp && !helpStarted && elapsed >= 3000) {
++			log("help video");
++			helpStarted = true;
++			go(nullptr, "help", kInstrum);
++			since = now - 3000;
++		} else if (elapsed >= (uint32)(withHelp ? 13000 : interval * 1000)) {
++			log("orchestra");
++			helpStarted = false;
++			go("ORCH", nullptr, kOrch);
++		}
++		break;
++	}
++	default:
++		break;
++	}
++}
++
+ Common::Error DirectorEngine::run() {
+ 	debug("Starting v%d Director game", getVersion());
+ 
+@@ -401,6 +522,7 @@ Common::Error DirectorEngine::run() {
+ 		// Standalone build: hotel map with the current room on the second screen
+ 		mausjagdSecondaryScreenTick();
+ #endif
++		testMovieTour();	// TEMPORARY TEST (not for the series)
+ 		while (!_windowsToForget.empty()) {
+ 			Window *window = _windowsToForget.back();
+ 			_windowsToForget.pop_back();

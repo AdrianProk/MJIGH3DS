@@ -2,6 +2,7 @@
 # Niemals committen oder pushen.
 original/
 game/
+game-en/
 *.iso
 *.zip
 
@@ -22,3 +23,6 @@ __pycache__/
 
 # Fremdwerkzeuge (z. B. ProjectorRays-Binary), lokal heruntergeladen
 vendor/
+
+# Absturz-Logs und -Berichte vom 3DS (lokal, nicht ins Repo)
+crashfiles/

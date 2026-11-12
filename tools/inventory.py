@@ -22,6 +22,12 @@ RULES = [
     (r'^[^/]+\.MOV$', 'video', 'nötig', 'QuickTime, SMC + raw-Audio'),
     (r'^GERHELP/.*\.MOV$', 'video', 'nötig', 'Hilfevideos des Katers, SMC + twos-Audio'),
     (r'^GERVIDEO/.*\.MOV$', 'video', 'nötig', 'Intro'),
+    # Englische CD ("The Great Green Mouse Disaster", Inventar docs/inventory-en.md)
+    (r'^GGMD\.EXE$', 'projector', 'nötig', 'Director-4.0.4-Projektor der englischen Fassung mit eingebettetem Startfilm'),
+    (r'^ENGHELP/.*\.MOV$', 'video', 'nötig', 'Hilfevideos des Katers (englisch), SMC + twos-Audio'),
+    (r'^ENGVIDEO/.*\.MOV$', 'video', 'nötig', 'Intro (englisch)'),
+    (r'^ENDSOUND/.*\.AIF$', 'sound', 'nötig', 'Abschluss-Sounds (englische Fassung)'),
+    (r'^DESKTOP$', 'marker', 'nötig', 'leere Datei der englischen CD; vorsichtshalber dabei (die CD-Prüfung arbeitet mit Markierungsdateien)'),
     (r'^SOUNDS/SNDTEXT\.TXT$', 'marker', 'nötig', 'leere Markierungsdatei für die CD-Prüfung im Startfilm'),
     (r'^SOUNDS/.*\.AIF$', 'sound', 'nötig', 'Effekte und Sprache'),
     (r'^ENDSOUNG/.*\.AIF$', 'sound', 'nötig', 'Abschluss-Sounds'),

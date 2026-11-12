@@ -1,0 +1,40 @@
+From 92304a6760ed6c161a57b64bfd3021bf196f6185 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Thu, 12 Nov 2026 06:30:03 +0100
+Subject: [PATCH 24/27] 3DS: Clear the texture pointer when freeing a sprite
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+C3D_TexDelete() frees the texture memory but leaves tex->data as it
+was. Sprite::create() after Sprite::free() then saw a texture and
+deleted the stale address a second time. linearFree() ignores unknown
+addresses, but if the address had been handed out again in between
+(e.g. to the new pixel buffer allocated just before), it freed memory
+that was still in use, which the GPU and the sprite then shared with
+another owner.
+
+free() followed by create() happens for the OSD message, the activity
+icon and, in the standalone Mäusejagd build, on every update of the
+second screen picture.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/sprite.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/backends/platform/3ds/sprite.cpp b/backends/platform/3ds/sprite.cpp
+index 01294e384d..caf3f56578 100644
+--- a/backends/platform/3ds/sprite.cpp
++++ b/backends/platform/3ds/sprite.cpp
+@@ -103,6 +103,10 @@ void Sprite::create(uint16 width, uint16 height, const GfxMode3DS *mode, bool vr
+ void Sprite::free() {
+ 	linearFree(pixels);
+ 	C3D_TexDelete(&texture);
++	// C3D_TexDelete() does not clear the pointer. Without this, the next create()
++	// would delete the stale address again, which may already belong to the new
++	// pixel buffer or to another allocation.
++	texture.data = nullptr;
+ 	pixels = 0;
+ 	w = h = pitch = 0;
+ 	actualWidth = actualHeight = 0;

@@ -1,7 +1,7 @@
 From f11d6a33b7c71d23cf47483c6377536792d7497d Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:16:29 +0100
-Subject: [PATCH 16/22] 3DS: Use the app folder as working directory
+Subject: [PATCH 16/27] 3DS: Use the app folder as working directory
  (MAUSJAGD_PORT)
 
 The backend makes the root of the SD card the working directory. Files

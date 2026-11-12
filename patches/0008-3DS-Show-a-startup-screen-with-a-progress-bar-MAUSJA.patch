@@ -1,7 +1,7 @@
 From 8707ab7423f890e460471ac4a754486244ca0992 Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 21:46:15 +0100
-Subject: [PATCH 08/22] 3DS: Show a startup screen with a progress bar
+Subject: [PATCH 08/27] 3DS: Show a startup screen with a progress bar
  (MAUSJAGD_PORT)
 
 Game detection and engine start block the main thread for a few

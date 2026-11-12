@@ -1,7 +1,7 @@
 From 2284a3dad0f9defd03f2c2e8cd87d3ef479c3ddf Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 06:16:29 +0100
-Subject: [PATCH 14/22] GRAPHICS: Speed up 8-bit transBlit
+Subject: [PATCH 14/27] GRAPHICS: Speed up 8-bit transBlit
 
 transBlit() decoded every destination pixel with colorToRGB() although
 the result was only used for 32-bit transparency, and asked

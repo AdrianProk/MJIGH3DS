@@ -23,6 +23,8 @@ SECTOR = 2048
 GAME_DIRS = {
     'SOUNDS', 'MUSIC', 'MUSIC8', 'SOLOS', 'SOLOS8', 'STARTSND', 'ENDSOUNG',
     'GERHELP', 'GERVIDEO', 'BILDER',
+    # Englische CD ("The Great Green Mouse Disaster")
+    'ENDSOUND', 'ENGHELP', 'ENGVIDEO',
 }
 
 

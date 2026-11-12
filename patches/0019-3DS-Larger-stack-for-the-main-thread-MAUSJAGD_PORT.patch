@@ -1,7 +1,7 @@
 From 1ef8de333fcbd62563d4ef7582cfc28369c49d3a Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:23:28 +0100
-Subject: [PATCH 19/22] 3DS: Larger stack for the main thread (MAUSJAGD_PORT)
+Subject: [PATCH 19/27] 3DS: Larger stack for the main thread (MAUSJAGD_PORT)
 
 The main thread had 64 KB of stack. Deep call chains, e.g. FreeType
 loading the GUI fonts for an error dialog (a known issue in the

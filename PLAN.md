@@ -209,6 +209,8 @@ MJIGH3DS/
 | B4 | Beim Antippen entsteht ein **Rechteck** um den Tippunkt | Noch nicht reproduziert | Zeiger-Bitmap (`cursor(200)` u. a.) ohne Transparenz im 3DS-Backend; "Hilite" geklickter Sprites als invertiertes Rechteck; Touch-Feedback des Backends | T4.10 |
 | B5 | Beim Start erscheint eine **ScummVM-Warnung** | Director-Spiele sind in ScummVM `ADGF_UNSTABLE`, deshalb kommt der Dialog aus `Engine::warnUserAboutUnsupportedGame()`. Abschaltbar über `enable_unsupported_game_warning` | – | T4.7 |
 | B6 | Der **Start dauert sehr lange** | Log: geöffnet 19:29:51, "Running …" um 19:31:36, also 1:45 min, einschließlich Wartezeit am Dialog aus B5 | Erkennung durchsucht die RomFS (442 Dateien, Scan-Tiefe 5, MD5); Laden von `SHARED.DXR`; Emulator-Overhead; die Startbildschirm-Pausen des Originals | T4.8 |
+| B7 | Im **Instrumentenraum** fängt die Katze an zu reden, bricht nach etwa 3/4 ab, und ihr Bild bleibt unten in der Ecke, bis man 2–3 Instrumente antippt; meist ab Maus 2 (2026-11-11, 3DS) | Desktop ohne Fenster: Nach der Bored-Animation kehrt `play done` zu Frame 5 statt 4 zurück und läuft in die Hilfe-Sequenz (Frame 7, `cathel11.mov`) | Engine: `play` aus dem `timeoutScript` wird wie ein Frame-Skript behandelt | T4.14 |
+| B8 | Bei **Maus 14** stürzt das Spiel ab und reißt den 3DS mit (2026-11-11, 3DS) | Log: Absturz 16 s nach Start des 15. Raums, kein Luma-Bericht; in Azahar als sporadischer Stillstand beim Start eines Fang-Videos reproduziert | Engine: Videos bekamen eine zufällige Sprite-Größe (uninitialisierte Skalierung), also riesige Widgets pro Bild | T4.15 |
 
 **Stand 2026-11-10, abends:**
 - **B5** ist behoben (Patch 0006, Kaltstart ohne Dialog).
@@ -219,6 +221,8 @@ MJIGH3DS/
 - **B3** ist Originalverhalten (Entscheidung des Nutzers): `startsequence` wartet ohne `updateStage`, bis die Raummusik endet.
 - **Neu** auf Wunsch des Nutzers: Startbildschirm mit Phasen-Balken (Patch 0008, T4.13).
 - **Offen:** B4 (Rechteck beim Tippen).
+- **Nachtrag 2026-11-11, abends:** **B7** ist im Desktop-Test behoben (Patch 0023, `docs/compat-log.md`), der Test auf dem 3DS steht aus. **B8** (Absturz bei Maus 14) ist offen.
+- **Nachtrag 2026-11-12:** **B8**: Ursache gefunden und behoben (Patch 0025). Videos bekamen durch eine uninitialisierte Skalierung zufällige, oft riesige Sprite-Größen. Dazu Patch 0024 (veralteter Texturzeiger im 3DS-Backend, betraf die Hotelkarte). Details und Messwerte in `docs/compat-log.md`. Auf dem 3DS bestätigt: Der Nutzer hat das ganze Spiel ohne Absturz durchgespielt.
 
 **Vorgehen:**
 1. **Erst einordnen, dann beheben (T4.6).** Jeder Befund wird am Desktop gegengeprüft: im offiziellen ScummVM für Windows (Nutzer) und im eigenen Linux-Build ohne Fenster (Agent). Tritt er auch dort auf, liegt der Fehler in der Director-Engine; sonst im 3DS-Backend oder an der Rechenleistung. Für die 3DS-Läufe kommt Diagnose-Logging dazu: Filmwechsel und Zeitstempel ins Log.

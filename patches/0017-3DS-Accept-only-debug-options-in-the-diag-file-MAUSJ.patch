@@ -1,7 +1,7 @@
 From d6f00d76748f3626a7c0afb03115c620f2fc13ae Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Wed, 11 Nov 2026 17:16:30 +0100
-Subject: [PATCH 17/22] 3DS: Accept only debug options in the diag file
+Subject: [PATCH 17/27] 3DS: Accept only debug options in the diag file
  (MAUSJAGD_PORT)
 
 The diag file passes extra command line options to the game start.

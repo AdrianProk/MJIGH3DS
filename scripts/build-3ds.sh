@@ -24,6 +24,10 @@
 #   APP_ART       nur Port mit EMBED_GAME=1: 1 = Icon, Banner und Banner-Ton aus Titelbild und
 #                 Titelmelodie des Spiels (scripts/make_app_art.py, Standard), 0 = Vorgaben von ScummVM.
 #                 Ohne eingebettete Spieldaten gelten immer die Vorgaben von ScummVM.
+#   GAME_LANG     nur Port: de (Standard) = "Mäusejagd im Grandhotel", en = "The Great Green Mouse
+#                 Disaster" als eigene App (Fork mit -DMAUSJAGD_LANG_EN, Daten <repo>/game-en,
+#                 Inventar docs/inventory-en.md, RSF config/ggmd.rsf, Build-Ordner 3ds-en,
+#                 Ausgabe dist/3ds/ggmd.3dsx bzw. ggmd-diag.3dsx und ggmd.cia)
 #
 # Achtung: Mit EMBED_GAME=1 enthalten .3dsx und .cia das Spiel. Nur für den eigenen Gebrauch,
 # nicht weitergeben (dist/ ist ignoriert).
@@ -34,25 +38,44 @@ PORT="${MAUSJAGD_PORT:-1}"
 JOBS="${JOBS:-$(nproc)}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [ "$PORT" = 1 ]; then
+GAME_LANG="${GAME_LANG:-de}"
+if [ "$PORT" = 1 ] && [ "$GAME_LANG" = en ]; then
+  # Englische Fassung als eigene App, siehe backends/platform/3ds/mausjagd.h im Fork
+  BUILD="${BUILD_ROOT:-$HOME/build}/3ds-en"
+  NAME=ggmd
+  export CPPFLAGS="-DMAUSJAGD_PORT -DMAUSJAGD_LANG_EN"
+  APP_VARS=(APP_TITLE="The Great Green Mouse Disaster"
+            APP_DESCRIPTION="3DS port with ScummVM (Director engine)"
+            APP_AUTHOR="ScummVM Team")
+  DEFAULT_GAME_DIR="$REPO/game-en"
+  INVENTORY="$REPO/docs/inventory-en.md"
+  RSF="$REPO/config/ggmd.rsf"
+elif [ "$PORT" = 1 ] && [ "$GAME_LANG" = de ]; then
   BUILD="${BUILD_ROOT:-$HOME/build}/3ds"
-  OUT=mausjagd.3dsx
+  NAME=mausjagd
   # Port-Patches im Fork sind mit #ifdef MAUSJAGD_PORT geschützt
   export CPPFLAGS="-DMAUSJAGD_PORT"
   APP_VARS=(APP_TITLE="Mäusejagd im Grandhotel"
             APP_DESCRIPTION="3DS-Port mit ScummVM (Director-Engine)"
             APP_AUTHOR="ScummVM Team")
+  DEFAULT_GAME_DIR="$REPO/game"
+  INVENTORY="$REPO/docs/inventory.md"
+  RSF="$REPO/config/mausjagd.rsf"
+elif [ "$PORT" = 1 ]; then
+  echo "GAME_LANG=$GAME_LANG unbekannt (de oder en)" >&2
+  exit 1
 else
   BUILD="${BUILD_ROOT:-$HOME/build}/3ds-vanilla"
-  OUT=scummvm.3dsx
+  NAME=scummvm
   export CPPFLAGS=
   APP_VARS=()
 fi
 
+OUT="$NAME.3dsx"
 DIAG="${DIAG:-0}"
 if [ "$DIAG" = 1 ]; then
   [ "$PORT" = 1 ] || { echo "DIAG=1 gibt es nur für den Port-Build" >&2; exit 1; }
-  OUT=mausjagd-diag.3dsx
+  OUT="$NAME-diag.3dsx"
 fi
 
 CIA="${CIA:-0}"
@@ -91,10 +114,10 @@ make -j"$JOBS"
 ROMFS_EXTRA=()
 EMBEDDED=0
 if [ "$PORT" = 1 ] && [ "${EMBED_GAME:-1}" = 1 ]; then
-  GAME_DIR="${GAME_DIR:-$REPO/game}"
+  GAME_DIR="${GAME_DIR:-$DEFAULT_GAME_DIR}"
   STAGE="$BUILD/romfs-extra/game"
-  echo "=== Spieldaten laut docs/inventory.md nach $STAGE (geprüft)"
-  python3 -I "$REPO/scripts/stage_game_data.py" "$GAME_DIR" "$REPO/docs/inventory.md" "$STAGE"
+  echo "=== Spieldaten laut ${INVENTORY#$REPO/} nach $STAGE (geprüft)"
+  python3 -I "$REPO/scripts/stage_game_data.py" "$GAME_DIR" "$INVENTORY" "$STAGE"
   ROMFS_EXTRA+=("$STAGE")
   EMBEDDED=1
   if [ "${APP_ART:-1}" = 1 ]; then
@@ -129,10 +152,10 @@ fi
 
 if [ "$CIA" = 1 ]; then
   # Gleiche RomFS und gleiches SMDH wie die .3dsx; Banner wie das Icon (siehe APP_ART)
-  echo "=== CIA mit $REPO/config/mausjagd.rsf"
+  echo "=== CIA mit $RSF"
   rm -f scummvm.bnr scummvm.cia
   make scummvm.cia "${APP_VARS[@]}" "${ROMFS_VARS[@]}" "${CIA_TOOLS[@]}" \
-    APP_RSF="$REPO/config/mausjagd.rsf"
+    APP_RSF="$RSF"
 fi
 
 dist="$REPO/dist/3ds"

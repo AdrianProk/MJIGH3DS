@@ -104,6 +104,34 @@ Seit 2026-11-10 baut das Skript standardmäßig den eigenständigen Port. Auf Wu
 - **Prüfung der fertigen Datei:** `py -I tools/inspect_3dsx.py dist/3ds/mausjagd.3dsx docs/inventory.md` prüft 3DSX-Kopf, SMDH und RomFS sowie die SHA-1 aller Spieldateien. Eine eingebettete `diag.txt` meldet es. Exit-Code 0 heißt: alles in Ordnung.
 - **Automatischer Startlauf im Emulator:** `scripts/azahar-run.ps1` (siehe `docs/performance.md`). Mit `-MoreShots N -ShotIntervalMs X` entstehen zusätzliche Bilder, z. B. zum Prüfen des Blinkens.
 
+### Englische Fassung (`GAME_LANG=en`, T7.2, Wunsch des Nutzers, 2026-11-12)
+
+```bash
+py -I tools/iso_extract.py extract <…>/GGMD_ENGLISH_WIN.iso game-en --profile game        # Windows, einmalig
+py -I tools/inventory.py game-en docs/inventory-en.md                                      # Windows, einmalig
+GAME_LANG=en CIA=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh  # -> dist/3ds/ggmd.3dsx und ggmd.cia
+```
+
+- **Daten:** Die englische CD ("GGMD_ENGLISH_WIN", 389 MB) liegt entpackt in `game-en/` (ignoriert).
+  - Aufbau wie bei der deutschen CD. Der Projektor heißt `GGMD.EXE`, die Ordner `ENGHELP`, `ENGVIDEO` und `ENDSOUND`. Dazu kommen das Unterspiel `MOUSMAZE` (nicht entpackt) und `INTROM.DXR`.
+  - Inventar: `docs/inventory-en.md`, 443 nötige Dateien (167 MB). `tools/inventory.py` und `tools/iso_extract.py` kennen jetzt auch die englischen Dateien und Ordner.
+- **Erkennung (Patch 0026):** ScummVM kannte die englische Windows-Fassung nicht. Neuer Eintrag `ggmd` mit `GGMD.EXE` (`d:e4114d5d…`, 1 444 668 Bytes) und `SHARED.DXR` (`d:c7591219…`, 391 136 Bytes). Am Desktop: "The Great Green Mouse Disaster (Windows/English)".
+- **Port (Patch 0027, `-DMAUSJAGD_LANG_EN`):**
+  - App-Ordner `sdmc:/3ds/ggmd/`: Konfiguration, Log und Spielstände getrennt von der deutschen Fassung.
+  - Prüfdatei `GGMD.EXE`.
+  - Englische Texte: Startbildschirm, Hotelkarte ("Mice N of 19") und Fehlerdialog.
+  - Ohne den Schalter ändert sich nichts.
+- **App:**
+  - Titel "The Great Green Mouse Disaster", eigene RSF `config/ggmd.rsf` (UniqueId `0xF8D4B`, Title-ID `000400000F8D4B00`, Produktcode `CTR-H-GGMD`). Beide Fassungen lassen sich also nebeneinander installieren.
+  - Banner, Icon und Banner-Ton aus dem englischen Titelbild (`scripts/make_app_art.py` findet `GGMD.EXE`; der Startfilm hat dieselbe Belegung wie der deutsche).
+  - Eigener Build-Ordner `~/build/3ds-en`.
+  - Das Menü der englischen Fassung hat dieselben Bausteine für die Hotelkarte (Bild `interfinalfordir0001`, `roomlist`, `soundlist`).
+- **Geprüft (Azahar, 2026-11-12):**
+  - Erkennung "Windows/English", Start mit Macmillan-Logo und englischem Intro.
+  - Hotelkarte mit "Mice 0 of 19", Fehlerdialog auf Englisch (ausgelöst durch einen Direkteinstieg in die Hotelübersicht).
+  - Im ELF stehen die englischen Texte und `sdmc:/3ds/ggmd/`, die deutschen fehlen; ctrtool zeigt die Title-ID `000400000F8D4B00`.
+  - Durchspielen auf dem 3DS steht aus.
+
 ### CIA (`CIA=1`, Wunsch des Nutzers, 2026-11-11)
 
 ```bash
@@ -130,6 +158,14 @@ CIA=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh    
   - Geprüft: `banner` und `icon` im ExeFS des CIA sind byte-gleich mit den neu erzeugten `scummvm.bnr`/`scummvm.smdh`. Das in Azahar neu installierte CIA startet.
 - **Ergebnis:** `mausjagd.cia` 202 MB, `.3dsx` 201 MB.
 - **Azahar:** `azahar.exe -i <cia>` installiert, beendet sich danach aber nicht selbst. Danach steht das Spiel in der Liste der installierten Titel. Für einen automatischen Lauf geht auch `scripts/azahar-run.ps1 -Game <…\title\00040000\0f8d4a00\content\*.app>`.
+- **Per QR-Code installieren** (ohne SD-Karte, Wunsch des Nutzers): `py -P scripts/serve_cia.py dist/3ds/final/mausjagd.cia` (Windows; `segno` aus den Benutzer-Paketen, deshalb `-P` statt `-I`).
+  - Das Skript bietet nur diese eine Datei per HTTP im WLAN an (`http://<PC-IP>:8080/mausjagd.cia`), ohne Verzeichnisliste; andere Pfade liefern 404.
+  - Es öffnet den QR-Code mit der URL als Bild. Auf dem 3DS: FBI → Remote Install → Scan QR Code. Danach lädt FBI das CIA vom PC und installiert es.
+  - Der Server endet nach dem ersten vollständigen Download (`--keep` lässt ihn weiterlaufen), spätestens nach 30 Minuten (`--minutes`). Das Spiel verlässt das Heimnetz nicht.
+  - 3DS und PC müssen im selben WLAN sein. Ist das WLAN in Windows als "Öffentlich" eingestuft, blockiert die Firewall eingehende Verbindungen; beim ersten Start fragt sie nach (Python zulassen) oder das Netz auf "Privat" stellen.
+  - Getestet am PC (2026-11-11): HEAD 200 mit richtiger Länge, andere Pfade 404, Download beginnt mit dem CIA-Kopf.
+  - **Auf dem 3DS** (2026-11-11, New 3DS des Nutzers): FBI hat nach dem Scan die ganze CIA geladen, 202,6 MB in 199 s (etwa 1 MB/s). Danach hat sich der Server beendet. Die Firewall hat den Zugriff trotz WLAN-Profil "Öffentlich" durchgelassen.
+  - Alternative für den eigenen Gebrauch: CIA in Google Drive mit Link-Freigabe; dazu ein QR-Code mit dem direkten Link `https://drive.usercontent.google.com/download?id=<Datei-ID>&export=download&confirm=t`. Ohne `confirm=t` zeigt Drive bei großen Dateien eine Warnseite. Am PC geprüft: liefert die CIA ohne Weiterleitung, und der Server nimmt TLS 1.2 mit `AES128-SHA` an. Nach der Installation die Freigabe zurücknehmen, sonst kann jeder mit dem Link das Spiel laden.
 - **Auf dem 3DS:** `mausjagd.cia` auf die SD-Karte kopieren und z. B. mit FBI installieren. Danach startet das Spiel vom HOME-Menü. Konfiguration, Log und Spielstände liegen wie bei der `.3dsx` in `SD:\3ds\mausjagd\`; beide Fassungen teilen sie sich.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`

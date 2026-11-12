@@ -254,6 +254,23 @@ Reihenfolge: T4.6 → T4.7 → T4.11/T4.12 → T4.10 → T4.9 → T4.8. Jeder Fi
     - Score-Prüfung aller 27 Filme auf Verweise ins Leere: nur SNOOKER betroffen, dazu harmlose Lücken in PLUMBER und ORCH (`docs/compat-log.md`).
     - Leistungsmessung aller 19 Räume im Emulator (`docs/performance.md`): kein Dauer-Engpass, kein Dithering.
     - Ruckler beim ersten Erscheinen großer Matte-Bilder mit Patch 0015 gemildert (SLOBS 132 → 48 ms).
+- [x] **T4.14** **B7:** Katze redet im Instrumentenraum von selbst, bricht ab, ihr Bild bleibt stehen (Nutzer, 2026-11-11, meist ab Maus 2).
+  *Fertig, wenn:* nach der Bored-Animation der Film in `Select` bleibt und der Nutzer B7 auf dem 3DS nicht mehr sieht.
+  → **Ursache gefunden und behoben** (2026-11-11, Agent, Patch 0023):
+    - Ohne Eingabe ruft INSTRUM nach 4 s über den `timeoutScript` `bored` auf: `play frame "Bored"` (Frames 1397–1413), danach `play done`.
+    - ScummVM kehrte zu Frame 5 statt 4 (`Select`) zurück, weil es `play` aus Ereignis-Skripten wie aus Frame-Skripten behandelte. So lief der Film in die Hilfe-Sequenz (Frame 7) mit dem Katzenvideo `cathel11.mov`. Danach fiel `go(myhelpframe)` (nie gesetzt) bis nach ORCH durch.
+    - Desktop ohne Fenster mit Zustand "Maus 2": jetzt alle 4 s Bored-Animation und Rückkehr zu Frame 4, kein Video. Details in `docs/compat-log.md`.
+    - **Auf dem 3DS bestätigt** (2026-11-12, Nutzer): ganzes Spiel durchgespielt, ohne erneute Meldung zu B7.
+- [x] **T4.15** **B8:** Absturz bei Maus 14, der den ganzen 3DS mitnimmt (Nutzer, 2026-11-11).
+  *Fertig, wenn:* ein kompletter Durchlauf aller 19 Räume auf dem 3DS ohne Absturz gelingt.
+  → **Ursache gefunden und behoben** (2026-11-12, Agent):
+    - Rundtour durch alle Räume in einem Prozess (`tools/scummvm-test-patches/movie-tour.patch`), am Desktop mit und ohne ASan sowie in Azahar mit GDB.
+    - Kein Speicherleck: Heap +0,3 MB pro Raum. Kein Speicherfehler (ASan).
+    - In Azahar sporadischer Stillstand beim Start eines Fang-Videos, einmal genau bei Maus 14.
+    - Ursache: `DigitalVideoCastMember` ließ `_scaleX`/`_scaleY` beim Lesen aus den Filmdaten uninitialisiert. Die Videos bekamen zufällige Sprite-Größen bis 13 100 × 23 424, und pro Bild wurde ein entsprechend riesiges Widget angelegt.
+    - Patch 0025. Dazu Patch 0024 (veralteter Texturzeiger im 3DS-Backend, Hotelkarte).
+    - Details in `docs/compat-log.md`.
+  → **Auf dem 3DS bestätigt** (2026-11-12, Nutzer): CIA mit Patches 0001–0025 per QR-Code installiert, das ganze Spiel ohne Absturz durchgespielt.
 
 ## Phase 5: 3DS-Anpassung
 
@@ -374,5 +391,10 @@ Ergebnisse kommen nach `docs/security.md`. S1 und S4 laufen für neue Patches **
 
 - [ ] **T7.1** Erkennungseintrag und Engine-Fixes als PR an `scummvm/scummvm` einreichen. Das ist nach außen wirksam und braucht eine Freigabe.
 - [ ] **T7.2** Die englische Version *The Great Green Mouse Disaster* unterstützen, falls vorhanden.
+  → **Gebaut** (2026-11-12, Wunsch des Nutzers; die englische CD liegt vor):
+    - `GAME_LANG=en` erzeugt `dist/3ds/ggmd.3dsx` und `ggmd.cia` als eigene App mit eigener Title-ID und eigenem SD-Ordner.
+    - Erkennungseintrag Patch 0026, englische Texte Patch 0027, Inventar `docs/inventory-en.md`.
+    - Im Emulator angespielt: Start, Intro, Hotelkarte, Fehlerdialog.
+    - Details in `docs/build-3ds.md`, Abschnitt "Englische Fassung". **Offen:** Durchlauf auf dem 3DS.
 - [ ] **T7.3** Den Mac-Teil einer Hybrid-CD unterstützen, falls eine solche vorliegt.
 - [ ] **T7.4** **Lupe** auf dem oberen Bildschirm (Idee des Nutzers, für später): ein 1:1-Ausschnitt der Originalgrafik um den letzten Tippunkt mit sichtbarem Cursor, z. B. solange eine Schultertaste gedrückt ist; sonst bleibt die Hotelkarte sichtbar. Ob die Lupe nötig ist, zeigt der Treffertest auf Hardware (T5.4).

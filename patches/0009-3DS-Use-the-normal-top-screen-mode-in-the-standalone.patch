@@ -1,7 +1,7 @@
 From 2022c2c09f1d287bd9d253dc5d3decb696fa101a Mon Sep 17 00:00:00 2001
 From: AdrianProk <Prokopczyk.Adrian@outlook.com>
 Date: Tue, 10 Nov 2026 21:50:15 +0100
-Subject: [PATCH 09/22] 3DS: Use the normal top screen mode in the standalone
+Subject: [PATCH 09/27] 3DS: Use the normal top screen mode in the standalone
  build (MAUSJAGD_PORT)
 
 The backend switches the top screen to the 800px wide mode. The

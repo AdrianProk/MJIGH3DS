@@ -20,7 +20,9 @@ param(
     [string]$GamePattern = "first frame at 640x480",
     # Optional weitere Bilder "3-spiel", "4-spiel", ... im Abstand ShotIntervalMs (z. B. für Blinken)
     [int]$MoreShots = 0,
-    [int]$ShotIntervalMs = 250
+    [int]$ShotIntervalMs = 250,
+    # App-Ordner auf der virtuellen SD, in dem das Log liegt: mausjagd (deutsch) oder ggmd (englisch)
+    [string]$AppFolder = "mausjagd"
 )
 $Game = (Resolve-Path $Game).Path
 
@@ -53,7 +55,7 @@ function Shot([System.Diagnostics.Process]$p, [string]$name) {
 }
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
-$log = "$env:APPDATA\Azahar\sdmc\3ds\mausjagd\scummvm.log"
+$log = "$env:APPDATA\Azahar\sdmc\3ds\$AppFolder\scummvm.log"
 $start = Get-Date
 $p = Start-Process -FilePath $Azahar -ArgumentList "`"$Game`"" -PassThru
 

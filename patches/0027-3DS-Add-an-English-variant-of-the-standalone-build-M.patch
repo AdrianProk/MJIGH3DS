@@ -1,0 +1,124 @@
+From ffeab9aab17e6442f8e82924c41b6131e8676c86 Mon Sep 17 00:00:00 2001
+From: AdrianProk <Prokopczyk.Adrian@outlook.com>
+Date: Thu, 12 Nov 2026 23:31:38 +0100
+Subject: [PATCH 27/27] 3DS: Add an English variant of the standalone build
+ (MAUSJAGD_LANG_EN)
+
+With MAUSJAGD_LANG_EN the standalone build is "The Great Green Mouse
+Disaster": own app folder sdmc:/3ds/ggmd/ (the saves of both language
+versions stay apart), GGMD.EXE as the file that marks the game data,
+and English texts on the startup screen, the hotel map and the error
+dialog. Without the define nothing changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backends/platform/3ds/mausjagd.h           | 13 +++++++++++++
+ backends/platform/3ds/osystem-graphics.cpp | 15 +++++++++++++--
+ engines/director/mausjagd-port.cpp         |  9 +++++++--
+ engines/engine.cpp                         |  8 ++++++--
+ 4 files changed, 39 insertions(+), 6 deletions(-)
+
+diff --git a/backends/platform/3ds/mausjagd.h b/backends/platform/3ds/mausjagd.h
+index a8088c4445..1b8d8b2158 100644
+--- a/backends/platform/3ds/mausjagd.h
++++ b/backends/platform/3ds/mausjagd.h
+@@ -28,6 +28,19 @@
+ // ScummVM installation, and starts the game without the launcher.
+ // Game data is taken from the RomFS of the .3dsx if it was embedded
+ // there, otherwise from a folder on the SD card.
++//
++// MAUSJAGD_LANG_EN builds the English version, "The Great Green Mouse
++// Disaster", as a separate app: its own folder (so the saves of both
++// versions stay apart), its own projector and English texts.
++
++#ifdef MAUSJAGD_LANG_EN
++#ifndef MAUSJAGD_APP_DIR
++#define MAUSJAGD_APP_DIR "sdmc:/3ds/ggmd/"
++#endif
++#ifndef MAUSJAGD_GAME_CHECK_FILE
++#define MAUSJAGD_GAME_CHECK_FILE "GGMD.EXE"
++#endif
++#endif
+ 
+ #ifndef MAUSJAGD_APP_DIR
+ #define MAUSJAGD_APP_DIR "sdmc:/3ds/mausjagd/"
+diff --git a/backends/platform/3ds/osystem-graphics.cpp b/backends/platform/3ds/osystem-graphics.cpp
+index b0d7dc5f65..e2223a6a69 100644
+--- a/backends/platform/3ds/osystem-graphics.cpp
++++ b/backends/platform/3ds/osystem-graphics.cpp
+@@ -964,11 +964,18 @@ void OSystem_3DS::setStartupPhase(StartupPhase phase) {
+ 
+ 	const Graphics::Font *bigFont = FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
+ 	const Graphics::Font *font = FontMan.getFontByUsage(Graphics::FontManager::kGUIFont);
++#ifdef MAUSJAGD_LANG_EN
++	const char *appTitle = "The Great Green Mouse Disaster";
++	const char *subTitle = "3DS port with ScummVM";
++#else
++	const char *appTitle = "M\xc3\xa4usejagd im Grandhotel";
++	const char *subTitle = "3DS-Port mit ScummVM";
++#endif
+ 	if (bigFont)
+-		bigFont->drawString(&_startupScreen, Common::U32String("M\xc3\xa4usejagd im Grandhotel"),
++		bigFont->drawString(&_startupScreen, Common::U32String(appTitle),
+ 		                    0, 76, width, title, Graphics::kTextAlignCenter);
+ 	if (font)
+-		font->drawString(&_startupScreen, Common::U32String("3DS-Port mit ScummVM"),
++		font->drawString(&_startupScreen, Common::U32String(subTitle),
+ 		                 0, 96, width, text, Graphics::kTextAlignCenter);
+ 
+ 	// Progress bar: one step per phase, the last step is the first frame of the game
+@@ -978,7 +985,11 @@ void OSystem_3DS::setStartupPhase(StartupPhase phase) {
+ 	if (fillWidth > 0)
+ 		_startupScreen.fillRect(Common::Rect(bar.left + 2, bar.top + 2, bar.left + 2 + fillWidth, bar.bottom - 2), barFill);
+ 
++#ifdef MAUSJAGD_LANG_EN
++	const char *status = phase == kStartupCheckingData ? "Checking game data ..." : "Starting the game ...";
++#else
+ 	const char *status = phase == kStartupCheckingData ? "Spieldaten werden gepr\xc3\xbc" "ft ..." : "Spiel wird gestartet ...";
++#endif
+ 	if (font)
+ 		font->drawString(&_startupScreen, Common::U32String(status),
+ 		                 0, 150, width, text, Graphics::kTextAlignCenter);
+diff --git a/engines/director/mausjagd-port.cpp b/engines/director/mausjagd-port.cpp
+index f6f046df12..cd6ee21f38 100644
+--- a/engines/director/mausjagd-port.cpp
++++ b/engines/director/mausjagd-port.cpp
+@@ -327,12 +327,17 @@ void showScreen(int room, int mice) {
+ 	const Graphics::Font *bigFont = FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
+ 	const uint32 textColor = format.RGBToColor(176, 186, 208);
+ 	const uint32 numberColor = format.RGBToColor(240, 200, 80);
++#ifdef MAUSJAGD_LANG_EN
++	const char *miceLabel = "Mice", *ofLabel = "of %d";
++#else
++	const char *miceLabel = "M\xc3\xa4use", *ofLabel = "von %d";
++#endif
+ 	if (font)
+-		font->drawString(&screen, Common::U32String("M\xc3\xa4use"), 0, 92, kPanelWidth, textColor, Graphics::kTextAlignCenter);
++		font->drawString(&screen, Common::U32String(miceLabel), 0, 92, kPanelWidth, textColor, Graphics::kTextAlignCenter);
+ 	if (bigFont)
+ 		bigFont->drawString(&screen, Common::U32String(Common::String::format("%d", mice)), 0, 108, kPanelWidth, numberColor, Graphics::kTextAlignCenter);
+ 	if (font)
+-		font->drawString(&screen, Common::U32String(Common::String::format("von %d", kNumRooms)), 0, 126, kPanelWidth, textColor, Graphics::kTextAlignCenter);
++		font->drawString(&screen, Common::U32String(Common::String::format(ofLabel, kNumRooms)), 0, 126, kPanelWidth, textColor, Graphics::kTextAlignCenter);
+ 
+ 	// Marker around the room's picture, scaled like the map, with 1 pixel of space
+ 	Common::Rect marker;
+diff --git a/engines/engine.cpp b/engines/engine.cpp
+index 00a6b51c3e..24496bfe67 100644
+--- a/engines/engine.cpp
++++ b/engines/engine.cpp
+@@ -91,8 +91,12 @@ static bool defaultErrorHandler(const char *msg) {
+ 	static bool showingError = false;
+ 	if (g_engine && !showingError) {
+ 		showingError = true;
+-		GUI::MessageDialog dialog(Common::U32String("Leider ist ein Fehler aufgetreten. Das Spiel wird beendet.\n\n") +
+-		                          Common::U32String(msg));
++#ifdef MAUSJAGD_LANG_EN
++		const char *intro = "Sorry, an error has occurred. The game will now quit.\n\n";
++#else
++		const char *intro = "Leider ist ein Fehler aufgetreten. Das Spiel wird beendet.\n\n";
++#endif
++		GUI::MessageDialog dialog(Common::U32String(intro) + Common::U32String(msg));
+ 		dialog.runModal();
+ 		handled = true;
+ 	}

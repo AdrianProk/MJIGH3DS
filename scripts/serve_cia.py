@@ -8,7 +8,7 @@ Server (mit --keep nicht), spätestens nach --minutes Minuten.
 Aufruf (Windows, braucht segno für den QR-Code). Abweichend von Regel 8 der TODO mit -P statt
 -I: segno liegt in den Benutzer-Paketen, die -I ausblendet. -P verhindert weiterhin, dass Module
 aus dem Skriptordner geladen werden; gelesen wird nur unser eigenes CIA.
-    py -P scripts/serve_cia.py dist/3ds/final/mausjagd.cia [--ip 192.168.0.135] [--port 8080]
+    py -P scripts/serve_cia.py dist/3ds/mausjagd.cia [--ip 192.168.0.135] [--port 8080]
 
 Danach auf dem 3DS: FBI -> Remote Install -> Scan QR Code, den Code auf dem Bildschirm scannen.
 3DS und PC müssen im selben WLAN sein. Beim ersten Start fragt die Windows-Firewall nach.

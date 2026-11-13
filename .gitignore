@@ -12,7 +12,7 @@ analysis/
 # ScummVM-Arbeitskopie (eigene Änderungen liegen als Patches in patches/)
 scummvm/
 
-# Build-Ausgaben
+# Build-Ausgaben (enthalten das Spiel; Sicherung als privates GitHub-Release, docs/build-3ds.md)
 dist/
 *.smdh
 *.elf

@@ -158,7 +158,7 @@ CIA=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh    
   - Geprüft: `banner` und `icon` im ExeFS des CIA sind byte-gleich mit den neu erzeugten `scummvm.bnr`/`scummvm.smdh`. Das in Azahar neu installierte CIA startet.
 - **Ergebnis:** `mausjagd.cia` 202 MB, `.3dsx` 201 MB.
 - **Azahar:** `azahar.exe -i <cia>` installiert, beendet sich danach aber nicht selbst. Danach steht das Spiel in der Liste der installierten Titel. Für einen automatischen Lauf geht auch `scripts/azahar-run.ps1 -Game <…\title\00040000\0f8d4a00\content\*.app>`.
-- **Per QR-Code installieren** (ohne SD-Karte, Wunsch des Nutzers): `py -P scripts/serve_cia.py dist/3ds/final/mausjagd.cia` (Windows; `segno` aus den Benutzer-Paketen, deshalb `-P` statt `-I`).
+- **Per QR-Code installieren** (ohne SD-Karte, Wunsch des Nutzers): `py -P scripts/serve_cia.py dist/3ds/mausjagd.cia` (Windows; `segno` aus den Benutzer-Paketen, deshalb `-P` statt `-I`).
   - Das Skript bietet nur diese eine Datei per HTTP im WLAN an (`http://<PC-IP>:8080/mausjagd.cia`), ohne Verzeichnisliste; andere Pfade liefern 404.
   - Es öffnet den QR-Code mit der URL als Bild. Auf dem 3DS: FBI → Remote Install → Scan QR Code. Danach lädt FBI das CIA vom PC und installiert es.
   - Der Server endet nach dem ersten vollständigen Download (`--keep` lässt ihn weiterlaufen), spätestens nach 30 Minuten (`--minutes`). Das Spiel verlässt das Heimnetz nicht.
@@ -167,6 +167,16 @@ CIA=1 bash /mnt/c/Users/Alphe/Documents/GitHub/MJIGH3DS/scripts/build-3ds.sh    
   - **Auf dem 3DS** (2026-11-11, New 3DS des Nutzers): FBI hat nach dem Scan die ganze CIA geladen, 202,6 MB in 199 s (etwa 1 MB/s). Danach hat sich der Server beendet. Die Firewall hat den Zugriff trotz WLAN-Profil "Öffentlich" durchgelassen.
   - Alternative für den eigenen Gebrauch: CIA in Google Drive mit Link-Freigabe; dazu ein QR-Code mit dem direkten Link `https://drive.usercontent.google.com/download?id=<Datei-ID>&export=download&confirm=t`. Ohne `confirm=t` zeigt Drive bei großen Dateien eine Warnseite. Am PC geprüft: liefert die CIA ohne Weiterleitung, und der Server nimmt TLS 1.2 mit `AES128-SHA` an. Nach der Installation die Freigabe zurücknehmen, sonst kann jeder mit dem Link das Spiel laden.
 - **Auf dem 3DS:** `mausjagd.cia` auf die SD-Karte kopieren und z. B. mit FBI installieren. Danach startet das Spiel vom HOME-Menü. Konfiguration, Log und Spielstände liegen wie bei der `.3dsx` in `SD:\3ds\mausjagd\`; beide Fassungen teilen sie sich.
+
+### Builds sichern: privates GitHub-Release (Wunsch des Nutzers, 2026-11-13)
+
+- **`dist/` bleibt ignoriert.** Jede `.3dsx`/`.cia` ist etwa 200 MB groß, GitHub nimmt im Repo höchstens 100 MB pro Datei an. Außerdem enthalten die Dateien das Spiel.
+- **Kein Git LFS:** Das kostenlose Kontingent (10 GB Speicher, 10 GB Download pro Monat) wäre nach etwa zwölf Build-Ständen voll, weil LFS alle Versionen behält. Die alten Builds blieben außerdem in der Historie.
+- **Stattdessen ein Release pro Build-Stand** im privaten Repo, Tag `build-<Datum>`.
+  - Assets: `mausjagd.3dsx`, `mausjagd.cia`, `ggmd.3dsx`, `ggmd.cia`. Erlaubt sind bis zu 2 GiB pro Datei, und Releases zählen nicht zum LFS-Kontingent. Alte Releases lassen sich einfach löschen.
+  - In die Release-Notiz gehören je Fassung der Fork-Commit, der Patch-Stand und die SHA-256 der Dateien.
+  - Aufruf: `gh release create build-<Datum> dist/3ds/mausjagd.3dsx dist/3ds/mausjagd.cia dist/3ds/ggmd.3dsx dist/3ds/ggmd.cia --title "…" --notes-file <notiz.md>`
+- **Das Repo muss privat bleiben**, sonst ist das Spiel öffentlich. FBI kann aus einem privaten Release nicht laden; zum Installieren also die Datei herunterladen und `scripts/serve_cia.py` oder die SD-Karte nehmen.
 
 - `configure --host=3ds --disable-all-engines --enable-engine=director --disable-cloud --disable-libcurl`
 - Mit nur einer Engine wird statisch gebaut. Dynamische Plugins braucht es laut README nur bei vielen Engines.
